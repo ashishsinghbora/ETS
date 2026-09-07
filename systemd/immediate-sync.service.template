@@ -1,0 +1,15 @@
+[Unit]
+Description=Immediate Sync Watcher for Tiered Storage (.immediate_sync)
+After=mergerfs-mount.service
+Requires=mergerfs-mount.service
+OnFailure=telegram-alert@%n.service
+
+[Service]
+Type=simple
+ExecStart={{IMMEDIATE_SCRIPT}}
+ExecStopPost=/bin/sh -c 'if [ "$$SERVICE_RESULT" != "success" ]; then {{ALERT_SCRIPT}} "⚠️ %n stopped unexpectedly ($$SERVICE_RESULT)"; fi'
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=default.target

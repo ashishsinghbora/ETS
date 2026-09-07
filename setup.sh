@@ -67,11 +67,14 @@ SYNC_BWLIMIT="${SYNC_BWLIMIT:-5M}"
 SYNC_TRANSFERS="${SYNC_TRANSFERS:-2}"
 SYNC_CHECKERS="${SYNC_CHECKERS:-2}"
 RCLONE_RC_ADDR="${RCLONE_RC_ADDR:-127.0.0.1:5572}"
+PANIC_THRESHOLD="${PANIC_THRESHOLD:-80}"
+PANIC_TARGET="${PANIC_TARGET:-60}"
+
 TELEGRAM_ALERTS_ENABLED="${TELEGRAM_ALERTS_ENABLED:-false}"
 
 # Ensure directories exist
 mkdir -p "$HOME/.local/bin" "$HOME/.config/encrypted-tiered-storage" "$HOME/.config/systemd/user"
-mkdir -p "$LOCAL_CACHE_DIR" "$CLOUD_REMOTE_MOUNT" "$TIERED_MOUNT"
+mkdir -p "$LOCAL_CACHE_DIR" "$CLOUD_REMOTE_MOUNT" "$TIERED_MOUNT" "$TIERED_MOUNT/.immediate_sync"
 export PATH="$HOME/.local/bin:$PATH"
 
 # 3. Check / Install Dependencies
@@ -103,6 +106,34 @@ if ! command -v mergerfs &>/dev/null; then
     rm -rf "$TMP_DIR"
 fi
 success "mergerfs is available: $(mergerfs -V | head -n1)"
+
+info "Checking inotify-tools (for .immediate_sync bypass)..."
+if ! command -v inotifywait &>/dev/null; then
+    warn "inotifywait not found. Attempting package manager installation..."
+    OS_FAMILY="${ID:-} ${ID_LIKE:-}"
+    case "$OS_FAMILY" in
+        *debian*|*ubuntu*|*raspbian*)
+            sudo apt-get update -y && sudo apt-get install -y inotify-tools || true
+            ;;
+        *arch*|*manjaro*)
+            sudo pacman -S --noconfirm inotify-tools || true
+            ;;
+        *fedora*|*rhel*|*centos*)
+            sudo dnf install -y inotify-tools || true
+            ;;
+        *alpine*)
+            sudo apk add inotify-tools || true
+            ;;
+    esac
+    if ! command -v inotifywait &>/dev/null; then
+        warn "inotify-tools could not be installed automatically. Immediate sync will degrade gracefully until installed."
+    else
+        success "inotify-tools installed successfully."
+    fi
+else
+    success "inotifywait is available."
+fi
+
 
 # 4. Verify Cloud Remote
 info "Checking cloud remote ${CLOUD_REMOTE}:..."
@@ -149,6 +180,11 @@ RCLONE_BIN="$(command -v rclone)"
 MERGERFS_BIN="$(command -v mergerfs)"
 ALERT_SCRIPT="$HOME/.local/bin/telegram_alert.py"
 SYNC_SCRIPT="$HOME/.local/bin/tier-sync.sh"
+IMMEDIATE_SCRIPT="$HOME/.local/bin/immediate-sync.sh"
+
+cp "${SCRIPT_DIR}/scripts/immediate-sync.sh" "$IMMEDIATE_SCRIPT"
+chmod +x "$IMMEDIATE_SCRIPT"
+
 
 cp "${SCRIPT_DIR}/scripts/tier-sync.sh" "$SYNC_SCRIPT"
 cp "${SCRIPT_DIR}/scripts/telegram_alert.py" "$ALERT_SCRIPT"
@@ -167,7 +203,8 @@ info "Deploying systemd user units..."
 render_template() {
     local src="$1"
     local dst="$2"
-    sed -e "s|{{RCLONE_BIN}}|${RCLONE_BIN}|g"         -e "s|{{MERGERFS_BIN}}|${MERGERFS_BIN}|g"         -e "s|{{CRYPT_REMOTE}}|${CRYPT_REMOTE}|g"         -e "s|{{CLOUD_REMOTE_MOUNT}}|${CLOUD_REMOTE_MOUNT}|g"         -e "s|{{LOCAL_CACHE_DIR}}|${LOCAL_CACHE_DIR}|g"         -e "s|{{TIERED_MOUNT}}|${TIERED_MOUNT}|g"         -e "s|{{SYNC_SCRIPT}}|${SYNC_SCRIPT}|g"         -e "s|{{ALERT_SCRIPT}}|${ALERT_SCRIPT}|g"         -e "s|{{SYNC_INTERVAL}}|${SYNC_INTERVAL}|g"         -e "s|{{RCLONE_RC_ADDR}}|${RCLONE_RC_ADDR}|g"         "$src" > "$dst"
+    sed -e "s|{{RCLONE_BIN}}|${RCLONE_BIN}|g"         -e "s|{{MERGERFS_BIN}}|${MERGERFS_BIN}|g"         -e "s|{{CRYPT_REMOTE}}|${CRYPT_REMOTE}|g"         -e "s|{{CLOUD_REMOTE_MOUNT}}|${CLOUD_REMOTE_MOUNT}|g"         -e "s|{{LOCAL_CACHE_DIR}}|${LOCAL_CACHE_DIR}|g"         -e "s|{{TIERED_MOUNT}}|${TIERED_MOUNT}|g"         -e "s|{{SYNC_SCRIPT}}|${SYNC_SCRIPT}|g"         -e "s|{{ALERT_SCRIPT}}|${ALERT_SCRIPT}|g"         -e "s|{{SYNC_INTERVAL}}|${SYNC_INTERVAL}|g"         -e "s|{{RCLONE_RC_ADDR}}|${RCLONE_RC_ADDR}|g" \
+        -e "s|{{IMMEDIATE_SCRIPT}}|${IMMEDIATE_SCRIPT}|g"         "$src" > "$dst"
 }
 
 render_template "${SCRIPT_DIR}/systemd/rclone-mount.service.template" "$HOME/.config/systemd/user/rclone-mount.service"
@@ -175,10 +212,17 @@ render_template "${SCRIPT_DIR}/systemd/mergerfs-mount.service.template" "$HOME/.
 render_template "${SCRIPT_DIR}/systemd/tier-sync.service.template" "$HOME/.config/systemd/user/tier-sync.service"
 render_template "${SCRIPT_DIR}/systemd/tier-sync.timer.template" "$HOME/.config/systemd/user/tier-sync.timer"
 render_template "${SCRIPT_DIR}/systemd/telegram-alert@.service.template" "$HOME/.config/systemd/user/telegram-alert@.service"
+render_template "${SCRIPT_DIR}/systemd/immediate-sync.service.template" "$HOME/.config/systemd/user/immediate-sync.service"
+
 
 # Reload and enable services
 systemctl --user daemon-reload
 systemctl --user enable --now rclone-mount.service mergerfs-mount.service tier-sync.timer
+if command -v inotifywait &>/dev/null; then
+    systemctl --user enable --now immediate-sync.service
+    success "immediate-sync.service started."
+fi
+
 success "Systemd user services and timer started."
 
 # Enable lingering so services survive user logout

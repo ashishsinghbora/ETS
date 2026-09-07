@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export PATH="$HOME/.local/bin:${PATH}"
 
 # Default fallback values (overridden by environment or config)
 CONFIG_FILE="${CONFIG_FILE:-$HOME/.config/encrypted-tiered-storage/storage.env}"
@@ -15,6 +16,13 @@ BWLIMIT="${SYNC_BWLIMIT:-5M}"
 TRANSFERS="${SYNC_TRANSFERS:-2}"
 CHECKERS="${SYNC_CHECKERS:-2}"
 RC_ADDR="${RCLONE_RC_ADDR:-127.0.0.1:5572}"
+PANIC_THRESHOLD="${PANIC_THRESHOLD:-80}"
+PANIC_TARGET="${PANIC_TARGET:-60}"
+
+DRY_RUN=false
+if [ "${1:-}" = "--dry-run" ] || [ "${DRY_RUN:-false}" = "true" ]; then
+    DRY_RUN=true
+fi
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
@@ -23,7 +31,69 @@ if [ ! -d "$LOCAL_CACHE" ]; then
     exit 1
 fi
 
-log "Starting tier-sync from $LOCAL_CACHE to $REMOTE_DEST (files older than $MIN_AGE)..."
+get_cache_usage() {
+    df -P "$LOCAL_CACHE" | awk 'NR==2 {print $5}' | tr -d '%'
+}
+
+# ------------------------------------------------------------------------------
+# 1. PANIC RULE: Evict oldest files (by access time) if disk usage >= PANIC_THRESHOLD
+# ------------------------------------------------------------------------------
+current_usage="$(get_cache_usage)"
+if [ "$current_usage" -ge "$PANIC_THRESHOLD" ]; then
+    log "[PANIC] Local cache filesystem usage ($current_usage%) >= panic threshold ($PANIC_THRESHOLD%). Starting LRU eviction..."
+    
+    # Sort files in LOCAL_CACHE by atime (oldest first: %A@)
+    while IFS= read -r -d $'\0' entry; do
+        curr="$(get_cache_usage)"
+        if [ "$curr" -le "$PANIC_TARGET" ]; then
+            log "[PANIC] Local cache usage dropped to $curr% (target <= $PANIC_TARGET%). Panic eviction complete."
+            break
+        fi
+        
+        filepath="${entry#* }"
+        [ -f "$filepath" ] || continue
+        relpath="${filepath#$LOCAL_CACHE/}"
+
+        # Smart Filer hook if enabled
+        if [ "${SMART_FILER_ENABLED:-false}" = "true" ] && [ -x "$HOME/.local/bin/smart-filer.sh" ]; then
+            filepath="$("$HOME/.local/bin/smart-filer.sh" "$filepath" 2>/dev/null || echo "$filepath")"
+            [ -f "$filepath" ] || continue
+            relpath="${filepath#$LOCAL_CACHE/}"
+        fi
+
+        log "[PANIC] Evicting LRU file: $relpath (cache usage: $curr%, target <= $PANIC_TARGET%)"
+        if [ "$DRY_RUN" = true ]; then
+            log "[DRY-RUN] [PANIC] Would move $filepath -> ${REMOTE_DEST}${relpath}"
+        else
+            rclone moveto "$filepath" "${REMOTE_DEST}${relpath}" \
+                --bwlimit "$BWLIMIT" \
+                --stats-one-line
+        fi
+    done < <(find "$LOCAL_CACHE" -mindepth 1 -type f -printf '%A@ %p\0' 2>/dev/null | sort -z -n)
+
+    if [ "$DRY_RUN" != true ]; then
+        find "$LOCAL_CACHE" -mindepth 1 -type d -empty -delete 2>/dev/null || true
+    fi
+else
+    log "[ROUTINE] Local cache usage ($current_usage%) < panic threshold ($PANIC_THRESHOLD%). Panic eviction skipped."
+fi
+
+# ------------------------------------------------------------------------------
+# 2. ROUTINE RULE: Evict files older than SYNC_MIN_AGE
+# ------------------------------------------------------------------------------
+log "[ROUTINE] Starting routine time-based sync from $LOCAL_CACHE to $REMOTE_DEST (files older than $MIN_AGE)..."
+
+# Smart Filer hook for routine pass if enabled
+if [ "${SMART_FILER_ENABLED:-false}" = "true" ] && [ -x "$HOME/.local/bin/smart-filer.sh" ]; then
+    while IFS= read -r -d $'\0' f; do
+        "$HOME/.local/bin/smart-filer.sh" "$f" 2>/dev/null || true
+    done < <(find "$LOCAL_CACHE" -mindepth 1 -type f -print0 2>/dev/null)
+fi
+
+RCLONE_EXTRA_ARGS=()
+if [ "$DRY_RUN" = true ]; then
+    RCLONE_EXTRA_ARGS+=(--dry-run)
+fi
 
 rclone move "$LOCAL_CACHE" "$REMOTE_DEST" \
     --min-age "$MIN_AGE" \
@@ -33,9 +103,12 @@ rclone move "$LOCAL_CACHE" "$REMOTE_DEST" \
     --delete-empty-src-dirs \
     --fast-list \
     --stats-one-line \
-    --stats 1m
+    --stats 1m \
+    "${RCLONE_EXTRA_ARGS[@]}"
 
 # Refresh rclone mount VFS directory cache so demoted files are immediately visible
-rclone rc --rc-addr "$RC_ADDR" vfs/refresh recursive=true >/dev/null 2>&1 || true
+if [ "$DRY_RUN" != true ]; then
+    rclone rc --rc-addr "$RC_ADDR" vfs/refresh recursive=true >/dev/null 2>&1 || true
+fi
 
-log "Tier-sync completed successfully."
+log "[ROUTINE] Tier-sync completed successfully."
