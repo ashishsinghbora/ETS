@@ -1,0 +1,6 @@
+[Unit]
+Description=Telegram Failure Alert for %I
+
+[Service]
+Type=oneshot
+ExecStart={{ALERT_SCRIPT}} "⚠️ Storage Pipeline unit %I failed on %H"

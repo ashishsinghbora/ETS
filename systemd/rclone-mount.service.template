@@ -1,0 +1,25 @@
+[Unit]
+Description=Rclone Crypt Remote Mount (Tiered Cloud Storage)
+Documentation=man:rclone(1)
+After=network-online.target
+Wants=network-online.target
+OnFailure=telegram-alert@%n.service
+
+[Service]
+Type=simple
+ExecStart={{RCLONE_BIN}} mount {{CRYPT_REMOTE}}: {{CLOUD_REMOTE_MOUNT}} \
+    --vfs-cache-mode writes \
+    --vfs-cache-max-size 1G \
+    --buffer-size 16M \
+    --dir-cache-time 1h \
+    --poll-interval 1m \
+    --rc \
+    --rc-addr {{RCLONE_RC_ADDR}} \
+    --rc-no-auth
+ExecStop=/usr/bin/fusermount -u {{CLOUD_REMOTE_MOUNT}}
+ExecStopPost=/bin/sh -c 'if [ "$$SERVICE_RESULT" != "success" ]; then {{ALERT_SCRIPT}} "⚠️ %n stopped unexpectedly ($$SERVICE_RESULT)"; fi'
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=default.target

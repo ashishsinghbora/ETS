@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Encrypted Tiered Cloud Storage - One-Command Automated Setup
+# ==============================================================================
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/config.env"
+
+# Colors for terminal output
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[1;33m"
+BLUE="\033[0;34m"
+CYAN="\033[0;36m"
+BOLD="\033[1m"
+NC="\033[0m"
+
+info()    { echo -e "${CYAN}[INFO]${NC} $*"; }
+success() { echo -e "${GREEN}[OK]${NC} $*"; }
+warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
+error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
+
+echo -e "${BOLD}${BLUE}"
+echo "============================================================"
+echo "    Encrypted Tiered Cloud Storage Pipeline Installer       "
+echo "============================================================"
+echo -e "${NC}"
+
+# 1. Environment & Architecture Detection
+ARCH="$(uname -m)"
+info "Detected architecture: $ARCH"
+
+if [ -f /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    source /etc/os-release
+    info "Detected OS: ${PRETTY_NAME:-$ID}"
+fi
+
+# 2. Load Configuration
+if [ -f "$CONFIG_FILE" ]; then
+    info "Loading configuration from ${CONFIG_FILE}..."
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+else
+    warn "config.env not found. Creating from config.env.example..."
+    if [ -f "${SCRIPT_DIR}/config.env.example" ]; then
+        cp "${SCRIPT_DIR}/config.env.example" "$CONFIG_FILE"
+        # shellcheck disable=SC1090
+        source "$CONFIG_FILE"
+    else
+        error "config.env.example is missing."
+    fi
+fi
+
+# Set defaults
+CLOUD_REMOTE="${CLOUD_REMOTE:-gdrive}"
+CLOUD_REMOTE_FOLDER="${CLOUD_REMOTE_FOLDER:-encrypted}"
+CRYPT_REMOTE="${CRYPT_REMOTE:-gcrypt}"
+STORAGE_BASE_DIR="${STORAGE_BASE_DIR:-$HOME/mnt}"
+LOCAL_CACHE_DIR="${LOCAL_CACHE_DIR:-$STORAGE_BASE_DIR/local-cache}"
+CLOUD_REMOTE_MOUNT="${CLOUD_REMOTE_MOUNT:-$STORAGE_BASE_DIR/gcrypt-remote}"
+TIERED_MOUNT="${TIERED_MOUNT:-$STORAGE_BASE_DIR/cloud-tiered}"
+SYNC_MIN_AGE="${SYNC_MIN_AGE:-15m}"
+SYNC_INTERVAL="${SYNC_INTERVAL:-20m}"
+SYNC_BWLIMIT="${SYNC_BWLIMIT:-5M}"
+SYNC_TRANSFERS="${SYNC_TRANSFERS:-2}"
+SYNC_CHECKERS="${SYNC_CHECKERS:-2}"
+RCLONE_RC_ADDR="${RCLONE_RC_ADDR:-127.0.0.1:5572}"
+TELEGRAM_ALERTS_ENABLED="${TELEGRAM_ALERTS_ENABLED:-false}"
+
+# Ensure directories exist
+mkdir -p "$HOME/.local/bin" "$HOME/.config/encrypted-tiered-storage" "$HOME/.config/systemd/user"
+mkdir -p "$LOCAL_CACHE_DIR" "$CLOUD_REMOTE_MOUNT" "$TIERED_MOUNT"
+export PATH="$HOME/.local/bin:$PATH"
+
+# 3. Check / Install Dependencies
+info "Checking rclone..."
+if ! command -v rclone &>/dev/null; then
+    warn "rclone is not installed. Attempting official installation..."
+    curl -fsSL https://rclone.org/install.sh | bash || error "Failed to install rclone. Please install manually."
+fi
+success "rclone is available: $(rclone version | head -n1)"
+
+info "Checking mergerfs..."
+if ! command -v mergerfs &>/dev/null; then
+    info "mergerfs not found. Installing static prebuilt binary for $ARCH..."
+    MFS_TAG="2.42.0"
+    case "$ARCH" in
+        x86_64)  MFS_ARCH="linux_amd64" ;;
+        aarch64|arm64) MFS_ARCH="linux_arm64" ;;
+        armv7l|armhf)  MFS_ARCH="linux_armhf" ;;
+        *) error "Unsupported architecture for prebuilt mergerfs: $ARCH" ;;
+    esac
+    
+    TMP_DIR="$(mktemp -d)"
+    TAR_URL="https://github.com/trapexit/mergerfs/releases/download/${MFS_TAG}/mergerfs-${MFS_TAG}-static-${MFS_ARCH}.tar.gz"
+    info "Downloading $TAR_URL..."
+    curl -fsSL "$TAR_URL" -o "${TMP_DIR}/mergerfs.tar.gz"
+    tar -xzf "${TMP_DIR}/mergerfs.tar.gz" -C "$HOME/.local/" --strip-components=2 usr/local/bin/
+    rm -f "$HOME/.local/bin/mergerfs-fusermount"
+    chmod +x "$HOME/.local/bin/mergerfs"*
+    rm -rf "$TMP_DIR"
+fi
+success "mergerfs is available: $(mergerfs -V | head -n1)"
+
+# 4. Verify Cloud Remote
+info "Checking cloud remote ${CLOUD_REMOTE}:..."
+if ! rclone lsd "${CLOUD_REMOTE}:" &>/dev/null; then
+    echo -e "${RED}[ERROR] Remote ${CLOUD_REMOTE}: is not configured or not accessible.${NC}"
+    echo "Please run: rclone config to authenticate your cloud drive first."
+    exit 1
+fi
+success "Cloud remote ${CLOUD_REMOTE}: verified."
+
+# Create remote encrypted storage folder
+rclone mkdir "${CLOUD_REMOTE}:${CLOUD_REMOTE_FOLDER}"
+
+# 5. Configure Crypt Remote
+GENERATED_PASSWORD=false
+if [ -z "${CRYPT_PASSWORD:-}" ]; then
+    GENERATED_PASSWORD=true
+    if command -v python3 &>/dev/null; then
+        CRYPT_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+    else
+        CRYPT_PASSWORD="$(head -c 24 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 24)"
+    fi
+fi
+
+info "Configuring crypt remote ${CRYPT_REMOTE}: backed by ${CLOUD_REMOTE}:${CLOUD_REMOTE_FOLDER}..."
+rclone config create "$CRYPT_REMOTE" crypt     remote "${CLOUD_REMOTE}:${CLOUD_REMOTE_FOLDER}"     filename_encryption standard     directory_name_encryption true     password "$CRYPT_PASSWORD" >/dev/null
+
+rclone config password "$CRYPT_REMOTE" password "$CRYPT_PASSWORD" >/dev/null
+success "Crypt remote ${CRYPT_REMOTE}: configured successfully."
+
+if [ "$GENERATED_PASSWORD" = true ]; then
+    echo -e "
+${RED}${BOLD}============================================================${NC}"
+    echo -e "${YELLOW}${BOLD}⚠️  CRITICAL: BACK UP YOUR ENCRYPTION PASSWORD NOW!${NC}"
+    echo -e "${BOLD}Password:${NC} ${GREEN}${CRYPT_PASSWORD}${NC}"
+    echo -e "Losing this password means permanent loss of encrypted data."
+    echo -e "${RED}${BOLD}============================================================${NC}
+"
+fi
+
+# 6. Install Scripts & Environment Configuration
+info "Installing scripts and user configuration..."
+RCLONE_BIN="$(command -v rclone)"
+MERGERFS_BIN="$(command -v mergerfs)"
+ALERT_SCRIPT="$HOME/.local/bin/telegram_alert.py"
+SYNC_SCRIPT="$HOME/.local/bin/tier-sync.sh"
+
+cp "${SCRIPT_DIR}/scripts/tier-sync.sh" "$SYNC_SCRIPT"
+cp "${SCRIPT_DIR}/scripts/telegram_alert.py" "$ALERT_SCRIPT"
+chmod +x "$SYNC_SCRIPT" "$ALERT_SCRIPT"
+
+# Save persistent storage config
+printf "LOCAL_CACHE_DIR=\"%s\"\nCRYPT_REMOTE=\"%s\"\nSYNC_MIN_AGE=\"%s\"\nSYNC_BWLIMIT=\"%s\"\nSYNC_TRANSFERS=\"%s\"\nSYNC_CHECKERS=\"%s\"\nRCLONE_RC_ADDR=\"%s\"\n"     "$LOCAL_CACHE_DIR" "$CRYPT_REMOTE" "$SYNC_MIN_AGE" "$SYNC_BWLIMIT" "$SYNC_TRANSFERS" "$SYNC_CHECKERS" "$RCLONE_RC_ADDR"     > "$HOME/.config/encrypted-tiered-storage/storage.env"
+
+# Save Telegram configuration
+printf "TELEGRAM_BOT_TOKEN=\"%s\"\nTELEGRAM_CHAT_ID=\"%s\"\n"     "${TELEGRAM_BOT_TOKEN:-}" "${TELEGRAM_CHAT_ID:-}"     > "$HOME/.config/encrypted-tiered-storage/telegram.env"
+chmod 600 "$HOME/.config/encrypted-tiered-storage/telegram.env"
+
+# 7. Render & Install Systemd User Units
+info "Deploying systemd user units..."
+
+render_template() {
+    local src="$1"
+    local dst="$2"
+    sed -e "s|{{RCLONE_BIN}}|${RCLONE_BIN}|g"         -e "s|{{MERGERFS_BIN}}|${MERGERFS_BIN}|g"         -e "s|{{CRYPT_REMOTE}}|${CRYPT_REMOTE}|g"         -e "s|{{CLOUD_REMOTE_MOUNT}}|${CLOUD_REMOTE_MOUNT}|g"         -e "s|{{LOCAL_CACHE_DIR}}|${LOCAL_CACHE_DIR}|g"         -e "s|{{TIERED_MOUNT}}|${TIERED_MOUNT}|g"         -e "s|{{SYNC_SCRIPT}}|${SYNC_SCRIPT}|g"         -e "s|{{ALERT_SCRIPT}}|${ALERT_SCRIPT}|g"         -e "s|{{SYNC_INTERVAL}}|${SYNC_INTERVAL}|g"         -e "s|{{RCLONE_RC_ADDR}}|${RCLONE_RC_ADDR}|g"         "$src" > "$dst"
+}
+
+render_template "${SCRIPT_DIR}/systemd/rclone-mount.service.template" "$HOME/.config/systemd/user/rclone-mount.service"
+render_template "${SCRIPT_DIR}/systemd/mergerfs-mount.service.template" "$HOME/.config/systemd/user/mergerfs-mount.service"
+render_template "${SCRIPT_DIR}/systemd/tier-sync.service.template" "$HOME/.config/systemd/user/tier-sync.service"
+render_template "${SCRIPT_DIR}/systemd/tier-sync.timer.template" "$HOME/.config/systemd/user/tier-sync.timer"
+render_template "${SCRIPT_DIR}/systemd/telegram-alert@.service.template" "$HOME/.config/systemd/user/telegram-alert@.service"
+
+# Reload and enable services
+systemctl --user daemon-reload
+systemctl --user enable --now rclone-mount.service mergerfs-mount.service tier-sync.timer
+success "Systemd user services and timer started."
+
+# Enable lingering so services survive user logout
+loginctl enable-linger "$USER" 2>/dev/null || true
+
+# 8. Test Telegram Notification (if configured)
+if [ "${TELEGRAM_ALERTS_ENABLED}" = "true" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
+    info "Sending test Telegram alert..."
+    if "$ALERT_SCRIPT" "🚀 Encrypted Tiered Storage successfully deployed on $(hostname)!" 2>/dev/null; then
+        success "Telegram notification sent!"
+    else
+        warn "Could not send Telegram test message. Please verify BOT_TOKEN and CHAT_ID."
+    fi
+fi
+
+# 9. Verify Mounts
+sleep 2
+if mountpoint -q "$CLOUD_REMOTE_MOUNT" && mountpoint -q "$TIERED_MOUNT"; then
+    success "All storage tiers mounted and active!"
+else
+    error "One or more mount points failed to activate. Check journalctl --user -xe."
+fi
+
+echo -e "\n${GREEN}${BOLD}Setup Completed Successfully! 🎉${NC}"
+echo -e "Unified Storage Mount: ${CYAN}${TIERED_MOUNT}${NC}"
+echo -e "Write your files directly to this directory."
+echo -e "Files will be cached locally and synced to encrypted cloud every ${SYNC_INTERVAL}."

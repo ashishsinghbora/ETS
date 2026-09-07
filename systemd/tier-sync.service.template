@@ -1,0 +1,12 @@
+[Unit]
+Description=Tiered Storage Sync (Demote Local Cache to Cloud Crypt)
+After=network-online.target
+OnFailure=telegram-alert@%n.service
+
+[Service]
+Type=oneshot
+ExecStart={{SYNC_SCRIPT}}
+ExecStopPost=/bin/sh -c 'if [ "$$SERVICE_RESULT" != "success" ]; then {{ALERT_SCRIPT}} "⚠️ %n sync failed ($$SERVICE_RESULT)"; fi'
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic Tiered Storage Sync Timer
+
+[Timer]
+OnBootSec=5m
+OnUnitActiveSec={{SYNC_INTERVAL}}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
