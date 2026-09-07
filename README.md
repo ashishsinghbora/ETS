@@ -64,8 +64,8 @@ flowchart TD
 
 ### 2. Clone & Configure
 ```bash
-git clone https://github.com/YOUR_USERNAME/encrypted-tiered-storage.git
-cd encrypted-tiered-storage
+git clone https://github.com/ashishsinghbora/ETS.git
+cd ETS
 cp config.env.example config.env
 ```
 
