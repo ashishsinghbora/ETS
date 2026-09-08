@@ -2,116 +2,460 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "Encrypted Tiered Storage (ETS) - System Architecture",
-    "subtitle": "Rootless, client-side encrypted tiered storage pipeline for Linux",
+    "title": "Encrypted Tiered Storage (ETS) - Architecture",
+    "subtitle": "Enterprise-grade, rootless client-side encrypted tiered storage pipeline for Linux",
     "output": "docs/architecture/ets-system.html",
     "visual_preset": "blueprint",
     "animation": "trace",
     "quality_profile": "standard",
-    "viewBox": [1160, 680],
+    "viewBox": [
+      1200,
+      680
+    ],
     "views": [
       {
-        "id": "write-and-demote",
-        "label": "Instant write and routine demotion",
-        "focus": ["clients", "mergerfs", "local_cache", "tier_sync", "rclone_crypt", "cloud_storage"],
-        "note": "Follow fast local SSD writes and subsequent background AES-256 cloud demotion."
+        "id": "write-pipeline",
+        "label": "Instant Write & Asynchronous LRU Demotion",
+        "focus": [
+          "clients",
+          "mergerfs",
+          "local_cache",
+          "tier_sync",
+          "rclone_crypt",
+          "cloud_storage"
+        ],
+        "note": "High-throughput local NVMe write absorption with automated background eviction."
       },
       {
         "id": "immediate-bypass",
-        "label": "Immediate sync bypass queue",
-        "focus": ["clients", "mergerfs", "imm_sync", "imm_watcher", "rclone_crypt", "cloud_storage"],
-        "note": "Direct offload route bypassing routine and panic eviction timers."
+        "label": "Real-Time Immediate Ingest Bypass",
+        "focus": [
+          "clients",
+          "mergerfs",
+          "imm_sync",
+          "imm_watcher",
+          "rclone_crypt",
+          "cloud_storage"
+        ],
+        "note": "Zero-delay event-driven offload pipeline via kernel inotify events."
       },
       {
-        "id": "resilience-monitoring",
-        "label": "Resiliency and failure alerting",
-        "focus": ["watchdog", "mergerfs", "telegram_alert"],
-        "note": "Automated FUSE health checks, auto-recovery, and rate-limited notifications."
+        "id": "transparent-streaming",
+        "label": "Transparent Cold Streaming & Failover",
+        "focus": [
+          "cloud_storage",
+          "rclone_mount",
+          "mergerfs",
+          "clients"
+        ],
+        "note": "Zero-friction VFS read fallthrough and on-demand AES-256 decryption."
+      },
+      {
+        "id": "health-resiliency",
+        "label": "System Resiliency & Health Telemetry",
+        "focus": [
+          "watchdog",
+          "mergerfs",
+          "telegram_alert"
+        ],
+        "note": "Automated FUSE health monitoring, hang recovery, and debounced alerting."
       }
     ]
   },
   "components": [
-    { "id": "clients", "type": "external", "label": "Applications", "sublabel": "Plex / Nextcloud / CLI", "pos": [40, 260], "size": [140, 64] },
-    { "id": "telegram_alert", "type": "external", "label": "Telegram Alerts", "sublabel": "Rate-limited (<5/m)", "brand": "telegram", "pos": [40, 450], "size": [140, 64] },
-
-    { "id": "rclone_mount", "type": "cloud", "label": "Remote FUSE Mount", "sublabel": "~/mnt/gcrypt-remote", "pos": [250, 70], "size": [150, 64], "tag": "VFS cache" },
-    { "id": "mergerfs", "type": "backend", "label": "MergerFS Mount", "sublabel": "~/mnt/cloud-tiered", "pos": [250, 260], "size": [150, 64], "tag": "category.create=ff" },
-    { "id": "watchdog", "type": "security", "label": "Mount Watchdog", "sublabel": "watchdog.sh daemon", "pos": [250, 450], "size": [150, 64], "tag": "auto-recovery" },
-
-    { "id": "local_cache", "type": "database", "label": "Fast Cache Tier", "sublabel": "~/mnt/local-cache", "pos": [500, 140], "size": [150, 64], "tag": "NVMe / SSD" },
-    { "id": "imm_sync", "type": "backend", "label": "Immediate Queue", "sublabel": ".immediate_sync/", "pos": [500, 380], "size": [150, 64], "tag": "bypass folder" },
-
-    { "id": "tier_sync", "type": "backend", "label": "Tier Sync Engine", "sublabel": "tier-sync.sh (flock)", "pos": [740, 140], "size": [150, 64], "tag": "Routine + Panic" },
-    { "id": "imm_watcher", "type": "backend", "label": "Immediate Watcher", "sublabel": "immediate-sync.sh", "pos": [740, 380], "size": [150, 64], "tag": "inotify / poll" },
-
-    { "id": "rclone_crypt", "type": "security", "label": "Rclone Crypt", "sublabel": "AES-256-GCM client-side", "pos": [970, 260], "size": [150, 64], "tag": "gcrypt:" },
-    { "id": "cloud_storage", "type": "cloud", "label": "Cloud Backend", "sublabel": "Drive / S3 / Union Pool", "brand": "google-cloud", "pos": [970, 450], "size": [150, 64], "tag": "cold storage" }
+    {
+      "id": "clients",
+      "type": "external",
+      "label": "Application Layer",
+      "sublabel": "Docker / Plex / CLI",
+      "pos": [
+        50,
+        100
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "POSIX I/O"
+    },
+    {
+      "id": "mergerfs",
+      "type": "frontend",
+      "label": "Unified Virtual Mount",
+      "sublabel": "~/mnt/cloud-tiered",
+      "pos": [
+        50,
+        240
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "category.create=ff"
+    },
+    {
+      "id": "watchdog",
+      "type": "security",
+      "label": "Mount Watchdog",
+      "sublabel": "watchdog.sh daemon",
+      "pos": [
+        50,
+        410
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "FUSE recovery"
+    },
+    {
+      "id": "telegram_alert",
+      "type": "security",
+      "label": "Alert Dispatcher",
+      "sublabel": "telegram_alert.py",
+      "brand": "telegram",
+      "pos": [
+        50,
+        540
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "rate-limited"
+    },
+    {
+      "id": "local_cache",
+      "type": "frontend",
+      "label": "Fast Local Tier",
+      "sublabel": "~/mnt/local-cache (SSD)",
+      "pos": [
+        270,
+        190
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "hot tier"
+    },
+    {
+      "id": "imm_sync",
+      "type": "frontend",
+      "label": "Immediate Spool",
+      "sublabel": ".immediate_sync/",
+      "pos": [
+        270,
+        340
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "zero-delay queue"
+    },
+    {
+      "id": "tier_sync",
+      "type": "backend",
+      "label": "Tier Sync Engine",
+      "sublabel": "tier-sync.sh (flock)",
+      "pos": [
+        540,
+        190
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "routine + panic LRU"
+    },
+    {
+      "id": "imm_watcher",
+      "type": "backend",
+      "label": "Inotify Streamer",
+      "sublabel": "immediate-sync.sh",
+      "pos": [
+        540,
+        340
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "event daemon"
+    },
+    {
+      "id": "rclone_crypt",
+      "type": "backend",
+      "label": "Crypt Pipeline",
+      "sublabel": "AES-256-GCM cipher",
+      "pos": [
+        760,
+        265
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "zero-knowledge"
+    },
+    {
+      "id": "rclone_mount",
+      "type": "frontend",
+      "label": "Remote FUSE Mount",
+      "sublabel": "~/mnt/gcrypt-remote (VFS)",
+      "pos": [
+        990,
+        190
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "read cache"
+    },
+    {
+      "id": "cloud_storage",
+      "type": "cloud",
+      "label": "Cloud Infrastructure",
+      "sublabel": "Google Drive / S3 / B2 Pool",
+      "brand": "google-cloud",
+      "pos": [
+        990,
+        340
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "cold tier"
+    }
   ],
   "boundaries": [
     {
       "kind": "region",
-      "label": "Linux Host (Rootless User Environment)",
-      "wraps": ["rclone_mount", "mergerfs", "watchdog", "local_cache", "imm_sync", "tier_sync", "imm_watcher", "rclone_crypt"],
+      "label": "User Space / Application Layer",
+      "wraps": [
+        "clients",
+        "mergerfs",
+        "watchdog",
+        "telegram_alert"
+      ],
       "pad": 16
     },
     {
       "kind": "security-group",
-      "label": "Unified Presentation Layer",
-      "wraps": ["rclone_mount", "mergerfs", "watchdog"],
-      "pad": 12
+      "label": "Local SSD Fast Cache Tier",
+      "wraps": [
+        "local_cache",
+        "imm_sync"
+      ],
+      "pad": 16
     },
     {
       "kind": "region",
-      "label": "Remote Storage Infrastructure",
-      "wraps": ["cloud_storage"],
-      "pad": 14
+      "label": "Background Sync & Eviction Engine",
+      "wraps": [
+        "tier_sync",
+        "imm_watcher",
+        "rclone_crypt"
+      ],
+      "pad": 16
+    },
+    {
+      "kind": "security-group",
+      "label": "Encrypted Cloud Infrastructure",
+      "wraps": [
+        "rclone_mount",
+        "cloud_storage"
+      ],
+      "pad": 16
     }
   ],
   "connections": [
-    { "id": "user-io", "from": "clients", "to": "mergerfs", "label": "read / write", "variant": "emphasis" },
-    { "id": "mount-to-mergerfs", "from": "rclone_mount", "to": "mergerfs", "label": "cold stream", "fromSide": "bottom", "toSide": "top", "labelAt": [325, 148] },
-
-    { "id": "mergerfs-to-cache", "from": "mergerfs", "to": "local_cache", "label": "instant write", "variant": "emphasis", "route": "orthogonal-h" },
-    { "id": "mergerfs-to-imm", "from": "mergerfs", "to": "imm_sync", "label": "bypass write", "variant": "dashed", "route": "orthogonal-h" },
-
-    { "id": "cache-to-sync", "from": "local_cache", "to": "tier_sync", "label": ">15m / LRU" },
-    { "id": "sync-to-crypt", "from": "tier_sync", "to": "rclone_crypt", "label": "rclone move", "variant": "security", "route": "orthogonal-h" },
-
-    { "id": "imm-to-watcher", "from": "imm_sync", "to": "imm_watcher", "label": "watch queue", "variant": "dashed" },
-    { "id": "watcher-to-crypt", "from": "imm_watcher", "to": "rclone_crypt", "label": "offload", "variant": "security", "route": "orthogonal-h" },
-
-    { "id": "crypt-to-cloud", "from": "rclone_crypt", "to": "cloud_storage", "label": "push blobs", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelAt": [1045, 338] },
-    { "id": "crypt-to-mount", "from": "rclone_crypt", "to": "rclone_mount", "label": "VFS refresh", "variant": "dashed", "fromSide": "top", "toSide": "top", "via": [[1045, 40], [325, 40]] },
-
-    { "id": "watchdog-to-mergerfs", "from": "watchdog", "to": "mergerfs", "label": "I/O probe", "variant": "dashed", "fromSide": "top", "toSide": "bottom" },
-    { "id": "watchdog-to-alert", "from": "watchdog", "to": "telegram_alert", "label": "alert on hang", "variant": "dashed" }
+    {
+      "id": "user-io",
+      "from": "clients",
+      "to": "mergerfs",
+      "label": "POSIX I/O",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        125,
+        202
+      ]
+    },
+    {
+      "id": "watchdog-probe",
+      "from": "watchdog",
+      "to": "mergerfs",
+      "label": "health probe",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        125,
+        357
+      ]
+    },
+    {
+      "id": "watchdog-alert",
+      "from": "watchdog",
+      "to": "telegram_alert",
+      "label": "dispatch failure",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        125,
+        507
+      ]
+    },
+    {
+      "id": "write-fast",
+      "from": "mergerfs",
+      "to": "local_cache",
+      "label": "instant write",
+      "variant": "emphasis",
+      "route": "orthogonal-h"
+    },
+    {
+      "id": "write-bypass",
+      "from": "mergerfs",
+      "to": "imm_sync",
+      "label": "spool write",
+      "variant": "dashed",
+      "route": "orthogonal-h"
+    },
+    {
+      "id": "cache-eviction",
+      "from": "local_cache",
+      "to": "tier_sync",
+      "label": "LRU demotion",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        480,
+        208
+      ]
+    },
+    {
+      "id": "queue-stream",
+      "from": "imm_sync",
+      "to": "imm_watcher",
+      "label": "inotify events",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        480,
+        358
+      ]
+    },
+    {
+      "id": "sync-to-crypt",
+      "from": "tier_sync",
+      "to": "rclone_crypt",
+      "label": "staged upload",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          835,
+          222
+        ]
+      ]
+    },
+    {
+      "id": "stream-to-crypt",
+      "from": "imm_watcher",
+      "to": "rclone_crypt",
+      "label": "instant offload",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          835,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "crypt-to-cloud",
+      "from": "rclone_crypt",
+      "to": "cloud_storage",
+      "label": "AES-256 blobs",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "orthogonal-h",
+      "labelAt": [
+        950,
+        315
+      ]
+    },
+    {
+      "id": "cloud-to-vfs",
+      "from": "cloud_storage",
+      "to": "rclone_mount",
+      "label": "chunk cache",
+      "variant": "default",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "vfs-to-mergerfs",
+      "from": "rclone_mount",
+      "to": "mergerfs",
+      "label": "cold read stream",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          1065,
+          45
+        ],
+        [
+          18,
+          45
+        ],
+        [
+          18,
+          272
+        ]
+      ]
+    }
   ],
   "cards": [
     {
       "dot": "cyan",
-      "title": "Zero-Buffer Storage Tiering",
+      "title": "Tiered Cache Absorption",
       "items": [
-        "Writes land locally on SSD at full hardware throughput",
-        "Dual-pass eviction balances routine age and emergency panic LRU",
-        "Cold files stream transparently from cloud via FUSE VFS cache"
+        "High-throughput NVMe/SSD cache tier absorbs all synchronous writes",
+        "category.create=ff policy ensures sub-millisecond local latency",
+        "POSIX-compliant transparent union prevents application re-architecting"
       ]
     },
     {
       "dot": "emerald",
-      "title": "Client-Side Zero-Knowledge Encryption",
+      "title": "Zero-Knowledge Cryptography",
       "items": [
-        "Rclone crypt encrypts data with AES-256-GCM before transmission",
-        "Filenames and directory structures are fully obfuscated",
-        "Disaster recovery works on any machine using standard rclone"
+        "Client-side AES-256-GCM cipher guarantees zero-knowledge offloading",
+        "File data, directory structures, and metadata strictly encrypted prior to egress",
+        "Seamless multi-backend pooling across S3, Google Drive, and B2 via rclone union"
       ]
     },
     {
       "dot": "rose",
-      "title": "Resiliency & Rootless Operation",
+      "title": "Fault-Tolerant Engine",
       "items": [
-        "Watchdog auto-recovers hung FUSE mounts via lazy unmount",
-        "Pipeline runs rootless via systemd user units on Linux/SBCs",
-        "Notification rate-limiter prevents runaway alert spam"
+        "Autonomous watchdog daemon detects hung FUSE mounts via timed I/O probes",
+        "Automatic unmount and restart cycle eliminates silent storage stalls",
+        "Debounced, rate-limited alerting (<5/min) delivers actionable telemetry"
       ]
     }
   ]

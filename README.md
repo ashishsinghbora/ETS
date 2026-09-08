@@ -92,37 +92,80 @@ Cloud Storage (Encrypted Cold Tier) ─┘
 </p>
 
 <details>
-<summary><b>View Mermaid / Text Flowchart</b></summary>
+<summary><b>View 4-Tier Mermaid Flowchart</b></summary>
 
 ```mermaid
-flowchart TD
-    App["📂 Application / User Access"] -->|Read / Write| Unified["🔀 Unified Tiered Mount: ~/mnt/cloud-tiered (mergerfs)"]
-    
-    subgraph Storage Tiers
-        Unified -->|"Writes & Hot Reads"| LocalCache["⚡ Fast Tier: ~/mnt/local-cache (Local SSD)"]
-        Unified -->|"Cold Reads (Streamed)"| RemoteMount["☁️ Remote Mount: ~/mnt/gcrypt-remote (rclone FUSE)"]
+flowchart LR
+    subgraph S1["1. User Space / Application Layer"]
+        App["📂 Application Client<br/><code>Plex / Nextcloud / Docker / CLI</code>"]
+        MergerFS["🔀 Unified Virtual Mount<br/><code>~/mnt/cloud-tiered (mergerfs)</code>"]
+        Watchdog["🛡️ Mount Watchdog Daemon<br/><code>watchdog.sh (I/O Probes)</code>"]
+        Alert["⚠️ Alert Dispatcher<br/><code>telegram_alert.py (Rate-Limited)</code>"]
     end
 
-    subgraph Eviction & Sync Engine
-        Timer["⏱️ tier-sync.timer (every 20m)"] --> Sync["🔄 tier-sync.sh"]
-        Inotify["👀 inotifywait / polling"] --> Immediate["⚡ immediate-sync.sh (.immediate_sync)"]
-        LocalCache -.->|"Routine (>15m) or Panic (LRU)"| Sync
-        Sync -->|"AES-256 Encryption"| RemoteMount
-        Immediate -->|"Instant Push"| RemoteMount
-        RemoteMount -->|"Upload Blobs"| Cloud["🌐 Cloud Storage (Google Drive / OneDrive / S3)"]
+    subgraph S2["2. Local SSD Fast Cache Tier"]
+        Cache["⚡ Fast Local NVMe/SSD Tier<br/><code>~/mnt/local-cache</code>"]
+        ImmQueue["⚡ Immediate Ingest Spool<br/><code>.immediate_sync/</code>"]
     end
 
-    subgraph Health & Reliability
-        Watchdog["🛡️ watchdog.sh daemon"] -->|"Timed I/O Checks"| Unified
-        Watchdog -.->|"On Hang: fusermount -uz & restart"| RemoteMount
-        RemoteMount -.->|"On Failure"| Alert["⚠️ telegram_alert.py"]
-        Sync -.->|"On Error"| Alert
-        Alert -->|"Webhook"| Notify["📱 Telegram / Discord / Slack"]
-        QuotaTimer["⏱️ quota-monitor.timer (every 5m)"] --> Quota["📊 quota-monitor.sh -> .quota.txt"]
+    subgraph S3["3. Background Sync & Eviction Engine"]
+        TierSync["🔄 Tier Sync Engine<br/><code>tier-sync.sh (flock protected)</code>"]
+        ImmStream["⚡ Inotify Streamer<br/><code>immediate-sync.sh (Event-Driven)</code>"]
+        Crypt["🔐 Zero-Knowledge Cipher<br/><code>AES-256-GCM (rclone crypt)</code>"]
     end
+
+    subgraph S4["4. Encrypted Cloud Infrastructure"]
+        Cloud["🌐 Cloud Storage Backend<br/><code>Google Drive / S3 / B2 Pool</code>"]
+        VFS["☁️ Remote FUSE VFS Mount<br/><code>~/mnt/gcrypt-remote (Chunk Cache)</code>"]
+    end
+
+    App -->|"Synchronous POSIX I/O"| MergerFS
+    MergerFS -->|"Instant Writes (category.create=ff)"| Cache
+    MergerFS -.->|"Spool Writes (bypass queue)"| ImmQueue
+
+    Cache -->|"Routine Age (>15m) / Panic LRU (>80%)"| TierSync
+    ImmQueue -->|"Kernel inotify events"| ImmStream
+
+    TierSync -->|"Batch Staged Upload"| Crypt
+    ImmStream -->|"Instant Push Stream"| Crypt
+
+    Crypt -->|"Ciphertext Blobs"| Cloud
+    Cloud -->|"Encrypted Chunks"| VFS
+    VFS -.->|"On-Demand Fallthrough Streaming"| MergerFS
+
+    Watchdog -->|"Timed Heartbeat Probes"| MergerFS
+    Watchdog -.->|"Dispatch Failure on Hang"| Alert
 ```
 
 </details>
+
+### 🔄 End-to-End Pipeline Data Flow
+
+ETS functions as a **fault-tolerant, high-throughput storage pipeline** designed to eliminate cloud mount latency while maintaining zero-knowledge data confidentiality. The architecture is organized into four strictly segregated operational tiers:
+
+1. **User Space / Application Layer (`~/mnt/cloud-tiered`)**
+   - **Unified POSIX Virtualization:** Applications (Docker, media servers, backup daemons, CLI tools) interact exclusively with the transparent MergerFS mount.
+   - **First-Found (`category.create=ff`) Ingest:** All new files, folder structures, and writes are deterministically absorbed by the local SSD cache tier at native disk speeds, eliminating network blocking.
+
+2. **Local SSD Fast Cache Tier (`~/mnt/local-cache`)**
+   - **Hot Storage Absorption:** Acts as a high-bandwidth landing zone for continuous writes, absorbing random I/O and large file streams without choking network interfaces.
+   - **Zero-Delay Ingest Spool (`.immediate_sync/`):** A dedicated priority directory monitored via Linux kernel `inotifywait`. Files written here bypass scheduled eviction timers and trigger instantaneous cloud offload.
+
+3. **Background Sync & Eviction Engine (`tier-sync` & `immediate-sync`)**
+   - **Concurrency Control:** All sync daemons run protected by non-blocking file locks (`flock`) to prevent concurrent process collisions and race conditions during high-volume ingestion.
+   - **Dual-Mode Lazy Eviction:**
+     - **Routine Eviction:** Regularly sweeps the fast tier for quiescent files exceeding `SYNC_MIN_AGE` (default: 15 minutes) and offloads them to cloud storage.
+     - **Panic LRU Eviction:** If local cache consumption breaches `PANIC_THRESHOLD` (default: 80%), the engine shifts into an emergency least-recently-used (LRU) eviction loop, offloading older data until utilization drops below target headroom.
+   - **Zero-Knowledge Encryption:** Data, directory hierarchies, and file metadata are encrypted client-side with **AES-256-GCM** using `rclone crypt` before any payload leaves host memory.
+
+4. **Encrypted Cloud Infrastructure (`~/mnt/gcrypt-remote`)**
+   - **Multi-Cloud Durability:** Target ciphertext resides across single or pooled remote backends (Google Drive, AWS S3, Backblaze B2, or multi-provider union mounts).
+   - **Transparent Read Fallthrough:** When an application accesses a file already evicted from the local SSD, MergerFS seamlessly falls through to the encrypted FUSE mount. Rclone streams and decrypts the requested byte ranges on the fly using full VFS read caching (`--vfs-cache-mode full`).
+
+5. **Self-Healing Watchdog & Telemetry Gateway**
+   - **Active Mount Probing:** A lightweight daemon (`watchdog.sh`) conducts non-blocking timed heartbeat I/O probes against the virtual filesystem.
+   - **Automated Self-Healing:** If a network drop or stale FUSE handle causes a mount to hang, the watchdog executes a lazy force unmount (`fusermount -uz`), cleans orphaned processes, and orchestrates an orderly systemd user unit recovery without requiring host reboots.
+   - **Debounced Alert Telemetry:** Out-of-band notifications are dispatched via `telegram_alert.py` with built-in rate-limiting (<5 alerts/min) and 60-second duplicate suppression.
 
 ---
 

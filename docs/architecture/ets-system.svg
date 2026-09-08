@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 680" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="blueprint" data-quality-profile="standard">
-        <title id="archify-diagram-title">Encrypted Tiered Storage (ETS) - System Architecture</title>
-        <desc id="archify-diagram-description">Rootless, client-side encrypted tiered storage pipeline for Linux</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="blueprint" data-quality-profile="standard">
+        <title id="archify-diagram-title">Encrypted Tiered Storage (ETS) - Architecture</title>
+        <desc id="archify-diagram-description">Enterprise-grade, rootless client-side encrypted tiered storage pipeline for Linux</desc>
         <!-- Definitions -->
         <defs>
 <style type="text/css"><![CDATA[
@@ -866,6 +866,10 @@ svg[data-story-playing="true"] .story-trail-flow {
   transition: none !important;
 }
 
+/* Minimalist slate gray boundaries */
+.c-region         { fill: rgba(148, 163, 184, 0.04); stroke: #64748b; stroke-dasharray: 8,4; }
+.c-security-group { fill: transparent; stroke: #94a3b8; stroke-dasharray: 6,4; }
+
 :root, svg {
   --bg: #020617;
   --grid: #1e293b;
@@ -936,9 +940,11 @@ svg[data-story-playing="true"] .story-trail-flow {
   --toolbar-hover:    #ffffff;
   --toolbar-menu-bg:  #ffffff;
   }
+  .c-region         { fill: rgba(100, 116, 139, 0.04); stroke: #94a3b8; stroke-dasharray: 8,4; }
+  .c-security-group { fill: transparent; stroke: #64748b; stroke-dasharray: 6,4; }
 }
 
-svg[data-theme=light] {
+svg[data-theme="light"] {
   --bg: #f8fafc;
   --grid: #e2e8f0;
   --text: #0f172a;
@@ -973,7 +979,7 @@ svg[data-theme=light] {
   --toolbar-menu-bg:  #ffffff;
 }
 
-svg[data-theme=dark] {
+svg[data-theme="dark"] {
   --bg: #020617;
   --grid: #1e293b;
   --text: #ffffff;
@@ -1032,248 +1038,267 @@ rect.c-bg-rect { fill: var(--bg); }
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Boundaries (behind everything) -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Linux Host (Rootless User Environment)" x="234" y="28" width="902" height="506" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="User Space / Application Layer" x="34" y="76" width="182" height="548" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="Unified Presentation Layer" x="238" y="46" width="174" height="488" rx="8" class="c-security-group" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="Local SSD Fast Cache Tier" x="254" y="166" width="182" height="258" rx="8" class="c-security-group" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="Remote Storage Infrastructure" x="956" y="426" width="178" height="108" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="Background Sync &amp; Eviction Engine" x="524" y="166" width="402" height="258" rx="12" class="c-region" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="3" data-composition-frame-label="Encrypted Cloud Infrastructure" x="974" y="166" width="182" height="258" rx="8" class="c-security-group" stroke-width="1"/>
 
         <!-- Connection paths (before components for correct z-order) -->
-        <path data-edge-from="clients" data-edge-to="mergerfs" data-edge-label="read / write" data-edge-key="0" data-edge-id="user-io" data-composition-points="180,292;250,292" d="M 180 292 L 250 292" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="rclone_mount" data-edge-to="mergerfs" data-edge-label="cold stream" data-edge-key="1" data-edge-id="mount-to-mergerfs" data-composition-points="325,134;325,260" d="M 325 134 L 325 260" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="mergerfs" data-edge-to="local_cache" data-edge-label="instant write" data-edge-key="2" data-edge-id="mergerfs-to-cache" data-composition-points="400,292;450,292;450,172;500,172" d="M 400 292 L 442 292 Q 450 292 450 284 L 450 180 Q 450 172 458 172 L 500 172" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="mergerfs" data-edge-to="imm_sync" data-edge-label="bypass write" data-edge-key="3" data-edge-id="mergerfs-to-imm" data-composition-points="400,292;450,292;450,412;500,412" d="M 400 292 L 442 292 Q 450 292 450 300 L 450 404 Q 450 412 458 412 L 500 412" class="a-dashed" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="local_cache" data-edge-to="tier_sync" data-edge-label="&gt;15m / LRU" data-edge-key="4" data-edge-id="cache-to-sync" data-composition-points="650,172;740,172" d="M 650 172 L 740 172" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="tier_sync" data-edge-to="rclone_crypt" data-edge-label="rclone move" data-edge-key="5" data-edge-id="sync-to-crypt" data-composition-points="890,172;930,172;930,292;970,292" d="M 890 172 L 922 172 Q 930 172 930 180 L 930 284 Q 930 292 938 292 L 970 292" class="a-security" data-animate="edge" style="--step:5" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="imm_sync" data-edge-to="imm_watcher" data-edge-label="watch queue" data-edge-key="6" data-edge-id="imm-to-watcher" data-composition-points="650,412;740,412" d="M 650 412 L 740 412" class="a-dashed" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="imm_watcher" data-edge-to="rclone_crypt" data-edge-label="offload" data-edge-key="7" data-edge-id="watcher-to-crypt" data-composition-points="890,412;930,412;930,292;970,292" d="M 890 412 L 922 412 Q 930 412 930 404 L 930 300 Q 930 292 938 292 L 970 292" class="a-security" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="rclone_crypt" data-edge-to="cloud_storage" data-edge-label="push blobs" data-edge-key="8" data-edge-id="crypt-to-cloud" data-composition-points="1045,324;1045,450" d="M 1045 324 L 1045 450" class="a-security" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="rclone_crypt" data-edge-to="rclone_mount" data-edge-label="VFS refresh" data-edge-key="9" data-edge-id="crypt-to-mount" data-composition-points="1045,260;1045,40;325,40;325,70" d="M 1045 260 L 1045 48 Q 1045 40 1037 40 L 333 40 Q 325 40 325 48 L 325 70" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="watchdog" data-edge-to="mergerfs" data-edge-label="I/O probe" data-edge-key="10" data-edge-id="watchdog-to-mergerfs" data-composition-points="325,450;325,324" d="M 325 450 L 325 324" class="a-dashed" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="watchdog" data-edge-to="telegram_alert" data-edge-label="alert on hang" data-edge-key="11" data-edge-id="watchdog-to-alert" data-composition-points="250,482;180,482" d="M 250 482 L 180 482" class="a-dashed" data-animate="edge" style="--step:11" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="clients" data-edge-to="mergerfs" data-edge-label="POSIX I/O" data-edge-key="0" data-edge-id="user-io" data-composition-points="125,164;125,240" d="M 125 164 L 125 240" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="watchdog" data-edge-to="mergerfs" data-edge-label="health probe" data-edge-key="1" data-edge-id="watchdog-probe" data-composition-points="125,410;125,304" d="M 125 410 L 125 304" class="a-dashed" data-animate="edge" style="--step:1" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="watchdog" data-edge-to="telegram_alert" data-edge-label="dispatch failure" data-edge-key="2" data-edge-id="watchdog-alert" data-composition-points="125,474;125,540" d="M 125 474 L 125 540" class="a-security" data-animate="edge" style="--step:2" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="mergerfs" data-edge-to="local_cache" data-edge-label="instant write" data-edge-key="3" data-edge-id="write-fast" data-composition-points="200,272;235,272;235,222;270,222" d="M 200 272 L 227 272 Q 235 272 235 264 L 235 230 Q 235 222 243 222 L 270 222" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="mergerfs" data-edge-to="imm_sync" data-edge-label="spool write" data-edge-key="4" data-edge-id="write-bypass" data-composition-points="200,272;235,272;235,372;270,372" d="M 200 272 L 227 272 Q 235 272 235 280 L 235 364 Q 235 372 243 372 L 270 372" class="a-dashed" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="local_cache" data-edge-to="tier_sync" data-edge-label="LRU demotion" data-edge-key="5" data-edge-id="cache-eviction" data-composition-points="420,222;540,222" d="M 420 222 L 540 222" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="imm_sync" data-edge-to="imm_watcher" data-edge-label="inotify events" data-edge-key="6" data-edge-id="queue-stream" data-composition-points="420,372;540,372" d="M 420 372 L 540 372" class="a-dashed" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="tier_sync" data-edge-to="rclone_crypt" data-edge-label="staged upload" data-edge-key="7" data-edge-id="sync-to-crypt" data-composition-points="690,222;835,222;835,265" d="M 690 222 L 827 222 Q 835 222 835 230 L 835 265" class="a-emphasis" data-animate="edge" style="--step:7" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="imm_watcher" data-edge-to="rclone_crypt" data-edge-label="instant offload" data-edge-key="8" data-edge-id="stream-to-crypt" data-composition-points="690,372;835,372;835,329" d="M 690 372 L 827 372 Q 835 372 835 364 L 835 329" class="a-dashed" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="rclone_crypt" data-edge-to="cloud_storage" data-edge-label="AES-256 blobs" data-edge-key="9" data-edge-id="crypt-to-cloud" data-composition-points="910,297;950,297;950,372;990,372" d="M 910 297 L 942 297 Q 950 297 950 305 L 950 364 Q 950 372 958 372 L 990 372" class="a-security" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="cloud_storage" data-edge-to="rclone_mount" data-edge-label="chunk cache" data-edge-key="10" data-edge-id="cloud-to-vfs" data-composition-points="1065,340;1065,254" d="M 1065 340 L 1065 254" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="rclone_mount" data-edge-to="mergerfs" data-edge-label="cold read stream" data-edge-key="11" data-edge-id="vfs-to-mergerfs" data-composition-points="1065,190;1065,45;18,45;18,272;50,272" d="M 1065 190 L 1065 53 Q 1065 45 1057 45 L 26 45 Q 18 45 18 53 L 18 264 Q 18 272 26 272 L 50 272" class="a-dashed" data-animate="edge" style="--step:11" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
-        <g id="node-clients" data-node-id="clients" data-node-label="Applications" tabindex="0" role="button" aria-label="Focus Applications, Plex / Nextcloud / CLI, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="Plex / Nextcloud / CLI" data-node-context="Architecture component">
-          <title>Applications · Plex / Nextcloud / CLI · Architecture component</title>
-          <rect x="40" y="260" width="140" height="64" rx="6" class="c-mask"/>
-          <rect x="40" y="260" width="140" height="64" rx="6" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(46 266) scale(0.6875)">
+        <g id="node-clients" data-node-id="clients" data-node-label="Application Layer" tabindex="0" role="button" aria-label="Focus Application Layer, Docker / Plex / CLI, User Space / Application Layer" aria-pressed="false" data-node-kind="external" data-node-sublabel="Docker / Plex / CLI" data-node-tag="POSIX I/O" data-node-context="User Space / Application Layer">
+          <title>Application Layer · Docker / Plex / CLI · User Space / Application Layer · POSIX I/O</title>
+          <rect x="50" y="100" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="50" y="100" width="150" height="64" rx="6" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(56 106) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="110" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Applications</text>
-        <text data-detail="context" x="110" y="306" class="t-muted" font-size="9" text-anchor="middle">Plex / Nextcloud / CLI</text>
+          <text data-node-label="" data-detail-anchor="" x="125" y="130" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Application Layer</text>
+        <text data-detail="context" x="125" y="146" class="t-muted" font-size="9" text-anchor="middle">Docker / Plex / CLI</text>
+        <text data-detail="fine" x="125" y="156" class="t-external" font-size="7" text-anchor="middle">POSIX I/O</text>
         </g>
 
-        <g id="node-telegram_alert" data-node-id="telegram_alert" data-node-label="Telegram Alerts" tabindex="0" role="button" aria-label="Focus Telegram Alerts, Rate-limited (&lt;5/m), Architecture component, Telegram" aria-pressed="false" data-node-kind="external" data-node-sublabel="Rate-limited (&lt;5/m)" data-node-context="Architecture component" data-node-brand="Telegram" data-node-brand-id="telegram" data-node-brand-status="preset" data-node-brand-source="https://telegram.org/tour/screenshots">
-          <title>Telegram Alerts · Rate-limited (&lt;5/m) · Architecture component · Telegram</title>
-          <rect x="40" y="450" width="140" height="64" rx="6" class="c-mask"/>
-          <rect x="40" y="450" width="140" height="64" rx="6" class="c-external" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(46 456) scale(0.6875)">
-            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
-            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
+        <g id="node-mergerfs" data-node-id="mergerfs" data-node-label="Unified Virtual Mount" tabindex="0" role="button" aria-label="Focus Unified Virtual Mount, ~/mnt/cloud-tiered, User Space / Application Layer" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="~/mnt/cloud-tiered" data-node-tag="category.create=ff" data-node-context="User Space / Application Layer">
+          <title>Unified Virtual Mount · ~/mnt/cloud-tiered · User Space / Application Layer · category.create=ff</title>
+          <rect x="50" y="240" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="50" y="240" width="150" height="64" rx="6" class="c-frontend" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(56 246) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <g aria-hidden="true" data-brand-mark="telegram" data-brand-title="Telegram" data-brand-status="preset" data-brand-source="https://telegram.org/tour/screenshots" class="brand-mark" transform="translate(158 456)">
+          <text data-node-label="" data-detail-anchor="" x="125" y="270" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Unified Virtual Mount</text>
+        <text data-detail="context" x="125" y="286" class="t-muted" font-size="9" text-anchor="middle">~/mnt/cloud-tiered</text>
+        <text data-detail="fine" x="125" y="296" class="t-frontend" font-size="7" text-anchor="middle">category.create=ff</text>
+        </g>
+
+        <g id="node-watchdog" data-node-id="watchdog" data-node-label="Mount Watchdog" tabindex="0" role="button" aria-label="Focus Mount Watchdog, watchdog.sh daemon, User Space / Application Layer" aria-pressed="false" data-node-kind="security" data-node-sublabel="watchdog.sh daemon" data-node-tag="FUSE recovery" data-node-context="User Space / Application Layer">
+          <title>Mount Watchdog · watchdog.sh daemon · User Space / Application Layer · FUSE recovery</title>
+          <rect x="50" y="410" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="50" y="410" width="150" height="64" rx="6" class="c-security" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(56 416) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="125" y="440" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Mount Watchdog</text>
+        <text data-detail="context" x="125" y="456" class="t-muted" font-size="9" text-anchor="middle">watchdog.sh daemon</text>
+        <text data-detail="fine" x="125" y="466" class="t-security" font-size="7" text-anchor="middle">FUSE recovery</text>
+        </g>
+
+        <g id="node-telegram_alert" data-node-id="telegram_alert" data-node-label="Alert Dispatcher" tabindex="0" role="button" aria-label="Focus Alert Dispatcher, telegram_alert.py, User Space / Application Layer, Telegram" aria-pressed="false" data-node-kind="security" data-node-sublabel="telegram_alert.py" data-node-tag="rate-limited" data-node-context="User Space / Application Layer" data-node-brand="Telegram" data-node-brand-id="telegram" data-node-brand-status="preset" data-node-brand-source="https://telegram.org/tour/screenshots">
+          <title>Alert Dispatcher · telegram_alert.py · User Space / Application Layer · rate-limited · Telegram</title>
+          <rect x="50" y="540" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="50" y="540" width="150" height="64" rx="6" class="c-security" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(56 546) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
+          </g>
+          <g aria-hidden="true" data-brand-mark="telegram" data-brand-title="Telegram" data-brand-status="preset" data-brand-source="https://telegram.org/tour/screenshots" class="brand-mark" transform="translate(178 546)">
             <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
             <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" transform="translate(3 3) scale(0.4166666666666667)" fill="#26A5E4"/>
             <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="110" y="480" class="t-primary" font-size="9.3" font-weight="600" text-anchor="middle">Telegram Alerts</text>
-        <text data-detail="context" x="110" y="496" class="t-muted" font-size="9" text-anchor="middle">Rate-limited (&lt;5/m)</text>
+          <text data-node-label="" data-detail-anchor="" x="125" y="570" class="t-primary" font-size="9.7" font-weight="600" text-anchor="middle">Alert Dispatcher</text>
+        <text data-detail="context" x="125" y="586" class="t-muted" font-size="9" text-anchor="middle">telegram_alert.py</text>
+        <text data-detail="fine" x="125" y="596" class="t-security" font-size="7" text-anchor="middle">rate-limited</text>
         </g>
 
-        <g id="node-rclone_mount" data-node-id="rclone_mount" data-node-label="Remote FUSE Mount" tabindex="0" role="button" aria-label="Focus Remote FUSE Mount, ~/mnt/gcrypt-remote, Linux Host (Rootless User Environment) › Unified Presentation Layer" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="~/mnt/gcrypt-remote" data-node-tag="VFS cache" data-node-context="Linux Host (Rootless User Environment) › Unified Presentation Layer">
-          <title>Remote FUSE Mount · ~/mnt/gcrypt-remote · Linux Host (Rootless User Environment) › Unified Presentation Layer · VFS cache</title>
-          <rect x="250" y="70" width="150" height="64" rx="6" class="c-mask"/>
-          <rect x="250" y="70" width="150" height="64" rx="6" class="c-cloud" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(256 76) scale(0.6875)">
+        <g id="node-local_cache" data-node-id="local_cache" data-node-label="Fast Local Tier" tabindex="0" role="button" aria-label="Focus Fast Local Tier, ~/mnt/local-cache (SSD), Local SSD Fast Cache Tier" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="~/mnt/local-cache (SSD)" data-node-tag="hot tier" data-node-context="Local SSD Fast Cache Tier">
+          <title>Fast Local Tier · ~/mnt/local-cache (SSD) · Local SSD Fast Cache Tier · hot tier</title>
+          <rect x="270" y="190" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="270" y="190" width="150" height="64" rx="6" class="c-frontend" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(276 196) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="345" y="220" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Fast Local Tier</text>
+        <text data-detail="context" x="345" y="236" class="t-muted" font-size="9" text-anchor="middle">~/mnt/local-cache (SSD)</text>
+        <text data-detail="fine" x="345" y="246" class="t-frontend" font-size="7" text-anchor="middle">hot tier</text>
+        </g>
+
+        <g id="node-imm_sync" data-node-id="imm_sync" data-node-label="Immediate Spool" tabindex="0" role="button" aria-label="Focus Immediate Spool, .immediate_sync/, Local SSD Fast Cache Tier" aria-pressed="false" data-node-kind="frontend" data-node-sublabel=".immediate_sync/" data-node-tag="zero-delay queue" data-node-context="Local SSD Fast Cache Tier">
+          <title>Immediate Spool · .immediate_sync/ · Local SSD Fast Cache Tier · zero-delay queue</title>
+          <rect x="270" y="340" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="270" y="340" width="150" height="64" rx="6" class="c-frontend" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(276 346) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="345" y="370" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Immediate Spool</text>
+        <text data-detail="context" x="345" y="386" class="t-muted" font-size="9" text-anchor="middle">.immediate_sync/</text>
+        <text data-detail="fine" x="345" y="396" class="t-frontend" font-size="7" text-anchor="middle">zero-delay queue</text>
+        </g>
+
+        <g id="node-tier_sync" data-node-id="tier_sync" data-node-label="Tier Sync Engine" tabindex="0" role="button" aria-label="Focus Tier Sync Engine, tier-sync.sh (flock), Background Sync &amp; Eviction Engine" aria-pressed="false" data-node-kind="backend" data-node-sublabel="tier-sync.sh (flock)" data-node-tag="routine + panic LRU" data-node-context="Background Sync &amp; Eviction Engine">
+          <title>Tier Sync Engine · tier-sync.sh (flock) · Background Sync &amp; Eviction Engine · routine + panic LRU</title>
+          <rect x="540" y="190" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="540" y="190" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(546 196) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="615" y="220" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Tier Sync Engine</text>
+        <text data-detail="context" x="615" y="236" class="t-muted" font-size="9" text-anchor="middle">tier-sync.sh (flock)</text>
+        <text data-detail="fine" x="615" y="246" class="t-backend" font-size="7" text-anchor="middle">routine + panic LRU</text>
+        </g>
+
+        <g id="node-imm_watcher" data-node-id="imm_watcher" data-node-label="Inotify Streamer" tabindex="0" role="button" aria-label="Focus Inotify Streamer, immediate-sync.sh, Background Sync &amp; Eviction Engine" aria-pressed="false" data-node-kind="backend" data-node-sublabel="immediate-sync.sh" data-node-tag="event daemon" data-node-context="Background Sync &amp; Eviction Engine">
+          <title>Inotify Streamer · immediate-sync.sh · Background Sync &amp; Eviction Engine · event daemon</title>
+          <rect x="540" y="340" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="540" y="340" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(546 346) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="615" y="370" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Inotify Streamer</text>
+        <text data-detail="context" x="615" y="386" class="t-muted" font-size="9" text-anchor="middle">immediate-sync.sh</text>
+        <text data-detail="fine" x="615" y="396" class="t-backend" font-size="7" text-anchor="middle">event daemon</text>
+        </g>
+
+        <g id="node-rclone_crypt" data-node-id="rclone_crypt" data-node-label="Crypt Pipeline" tabindex="0" role="button" aria-label="Focus Crypt Pipeline, AES-256-GCM cipher, Background Sync &amp; Eviction Engine" aria-pressed="false" data-node-kind="backend" data-node-sublabel="AES-256-GCM cipher" data-node-tag="zero-knowledge" data-node-context="Background Sync &amp; Eviction Engine">
+          <title>Crypt Pipeline · AES-256-GCM cipher · Background Sync &amp; Eviction Engine · zero-knowledge</title>
+          <rect x="760" y="265" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="760" y="265" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:8" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(766 271) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="835" y="295" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Crypt Pipeline</text>
+        <text data-detail="context" x="835" y="311" class="t-muted" font-size="9" text-anchor="middle">AES-256-GCM cipher</text>
+        <text data-detail="fine" x="835" y="321" class="t-backend" font-size="7" text-anchor="middle">zero-knowledge</text>
+        </g>
+
+        <g id="node-rclone_mount" data-node-id="rclone_mount" data-node-label="Remote FUSE Mount" tabindex="0" role="button" aria-label="Focus Remote FUSE Mount, ~/mnt/gcrypt-remote (VFS), Encrypted Cloud Infrastructure" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="~/mnt/gcrypt-remote (VFS)" data-node-tag="read cache" data-node-context="Encrypted Cloud Infrastructure">
+          <title>Remote FUSE Mount · ~/mnt/gcrypt-remote (VFS) · Encrypted Cloud Infrastructure · read cache</title>
+          <rect x="990" y="190" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="990" y="190" width="150" height="64" rx="6" class="c-frontend" data-animate="node" style="--step:11" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(996 196) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1065" y="220" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Remote FUSE Mount</text>
+        <text data-detail="context" x="1065" y="236" class="t-muted" font-size="9" text-anchor="middle">~/mnt/gcrypt-remote (VFS)</text>
+        <text data-detail="fine" x="1065" y="246" class="t-frontend" font-size="7" text-anchor="middle">read cache</text>
+        </g>
+
+        <g id="node-cloud_storage" data-node-id="cloud_storage" data-node-label="Cloud Infrastructure" tabindex="0" role="button" aria-label="Focus Cloud Infrastructure, Google Drive / S3 / B2 Pool, Encrypted Cloud Infrastructure, Google Cloud" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="Google Drive / S3 / B2 Pool" data-node-tag="cold tier" data-node-context="Encrypted Cloud Infrastructure" data-node-brand="Google Cloud" data-node-brand-id="google-cloud" data-node-brand-status="preset" data-node-brand-source="https://cloud.google.com">
+          <title>Cloud Infrastructure · Google Drive / S3 / B2 Pool · Encrypted Cloud Infrastructure · cold tier · Google Cloud</title>
+          <rect x="990" y="340" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="990" y="340" width="150" height="64" rx="6" class="c-cloud" data-animate="node" style="--step:10" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(996 346) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="325" y="100" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Remote FUSE Mount</text>
-        <text data-detail="context" x="325" y="116" class="t-muted" font-size="9" text-anchor="middle">~/mnt/gcrypt-remote</text>
-        <text data-detail="fine" x="325" y="126" class="t-cloud" font-size="7" text-anchor="middle">VFS cache</text>
-        </g>
-
-        <g id="node-mergerfs" data-node-id="mergerfs" data-node-label="MergerFS Mount" tabindex="0" role="button" aria-label="Focus MergerFS Mount, ~/mnt/cloud-tiered, Linux Host (Rootless User Environment) › Unified Presentation Layer" aria-pressed="false" data-node-kind="backend" data-node-sublabel="~/mnt/cloud-tiered" data-node-tag="category.create=ff" data-node-context="Linux Host (Rootless User Environment) › Unified Presentation Layer">
-          <title>MergerFS Mount · ~/mnt/cloud-tiered · Linux Host (Rootless User Environment) › Unified Presentation Layer · category.create=ff</title>
-          <rect x="250" y="260" width="150" height="64" rx="6" class="c-mask"/>
-          <rect x="250" y="260" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(256 266) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="325" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">MergerFS Mount</text>
-        <text data-detail="context" x="325" y="306" class="t-muted" font-size="9" text-anchor="middle">~/mnt/cloud-tiered</text>
-        <text data-detail="fine" x="325" y="316" class="t-backend" font-size="7" text-anchor="middle">category.create=ff</text>
-        </g>
-
-        <g id="node-watchdog" data-node-id="watchdog" data-node-label="Mount Watchdog" tabindex="0" role="button" aria-label="Focus Mount Watchdog, watchdog.sh daemon, Linux Host (Rootless User Environment) › Unified Presentation Layer" aria-pressed="false" data-node-kind="security" data-node-sublabel="watchdog.sh daemon" data-node-tag="auto-recovery" data-node-context="Linux Host (Rootless User Environment) › Unified Presentation Layer">
-          <title>Mount Watchdog · watchdog.sh daemon · Linux Host (Rootless User Environment) › Unified Presentation Layer · auto-recovery</title>
-          <rect x="250" y="450" width="150" height="64" rx="6" class="c-mask"/>
-          <rect x="250" y="450" width="150" height="64" rx="6" class="c-security" data-animate="node" style="--step:10" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(256 456) scale(0.6875)">
-            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
-            <path d="m5.8 8 1.5 1.5 3-3"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="325" y="480" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Mount Watchdog</text>
-        <text data-detail="context" x="325" y="496" class="t-muted" font-size="9" text-anchor="middle">watchdog.sh daemon</text>
-        <text data-detail="fine" x="325" y="506" class="t-security" font-size="7" text-anchor="middle">auto-recovery</text>
-        </g>
-
-        <g id="node-local_cache" data-node-id="local_cache" data-node-label="Fast Cache Tier" tabindex="0" role="button" aria-label="Focus Fast Cache Tier, ~/mnt/local-cache, Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="database" data-node-sublabel="~/mnt/local-cache" data-node-tag="NVMe / SSD" data-node-context="Linux Host (Rootless User Environment)">
-          <title>Fast Cache Tier · ~/mnt/local-cache · Linux Host (Rootless User Environment) · NVMe / SSD</title>
-          <rect x="500" y="140" width="150" height="64" rx="6" class="c-mask"/>
-          <rect x="500" y="140" width="150" height="64" rx="6" class="c-database" data-animate="node" style="--step:3" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(506 146) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="575" y="170" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Fast Cache Tier</text>
-        <text data-detail="context" x="575" y="186" class="t-muted" font-size="9" text-anchor="middle">~/mnt/local-cache</text>
-        <text data-detail="fine" x="575" y="196" class="t-database" font-size="7" text-anchor="middle">NVMe / SSD</text>
-        </g>
-
-        <g id="node-imm_sync" data-node-id="imm_sync" data-node-label="Immediate Queue" tabindex="0" role="button" aria-label="Focus Immediate Queue, .immediate_sync/, Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="backend" data-node-sublabel=".immediate_sync/" data-node-tag="bypass folder" data-node-context="Linux Host (Rootless User Environment)">
-          <title>Immediate Queue · .immediate_sync/ · Linux Host (Rootless User Environment) · bypass folder</title>
-          <rect x="500" y="380" width="150" height="64" rx="6" class="c-mask"/>
-          <rect x="500" y="380" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(506 386) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="575" y="410" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Immediate Queue</text>
-        <text data-detail="context" x="575" y="426" class="t-muted" font-size="9" text-anchor="middle">.immediate_sync/</text>
-        <text data-detail="fine" x="575" y="436" class="t-backend" font-size="7" text-anchor="middle">bypass folder</text>
-        </g>
-
-        <g id="node-tier_sync" data-node-id="tier_sync" data-node-label="Tier Sync Engine" tabindex="0" role="button" aria-label="Focus Tier Sync Engine, tier-sync.sh (flock), Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="tier-sync.sh (flock)" data-node-tag="Routine + Panic" data-node-context="Linux Host (Rootless User Environment)">
-          <title>Tier Sync Engine · tier-sync.sh (flock) · Linux Host (Rootless User Environment) · Routine + Panic</title>
-          <rect x="740" y="140" width="150" height="64" rx="6" class="c-mask"/>
-          <rect x="740" y="140" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(746 146) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="815" y="170" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Tier Sync Engine</text>
-        <text data-detail="context" x="815" y="186" class="t-muted" font-size="9" text-anchor="middle">tier-sync.sh (flock)</text>
-        <text data-detail="fine" x="815" y="196" class="t-backend" font-size="7" text-anchor="middle">Routine + Panic</text>
-        </g>
-
-        <g id="node-imm_watcher" data-node-id="imm_watcher" data-node-label="Immediate Watcher" tabindex="0" role="button" aria-label="Focus Immediate Watcher, immediate-sync.sh, Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="immediate-sync.sh" data-node-tag="inotify / poll" data-node-context="Linux Host (Rootless User Environment)">
-          <title>Immediate Watcher · immediate-sync.sh · Linux Host (Rootless User Environment) · inotify / poll</title>
-          <rect x="740" y="380" width="150" height="64" rx="6" class="c-mask"/>
-          <rect x="740" y="380" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(746 386) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="815" y="410" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Immediate Watcher</text>
-        <text data-detail="context" x="815" y="426" class="t-muted" font-size="9" text-anchor="middle">immediate-sync.sh</text>
-        <text data-detail="fine" x="815" y="436" class="t-backend" font-size="7" text-anchor="middle">inotify / poll</text>
-        </g>
-
-        <g id="node-rclone_crypt" data-node-id="rclone_crypt" data-node-label="Rclone Crypt" tabindex="0" role="button" aria-label="Focus Rclone Crypt, AES-256-GCM client-side, Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="security" data-node-sublabel="AES-256-GCM client-side" data-node-tag="gcrypt:" data-node-context="Linux Host (Rootless User Environment)">
-          <title>Rclone Crypt · AES-256-GCM client-side · Linux Host (Rootless User Environment) · gcrypt:</title>
-          <rect x="970" y="260" width="150" height="64" rx="6" class="c-mask"/>
-          <rect x="970" y="260" width="150" height="64" rx="6" class="c-security" data-animate="node" style="--step:6" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(976 266) scale(0.6875)">
-            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
-            <path d="m5.8 8 1.5 1.5 3-3"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1045" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Rclone Crypt</text>
-        <text data-detail="context" x="1045" y="306" class="t-muted" font-size="9" text-anchor="middle">AES-256-GCM client-side</text>
-        <text data-detail="fine" x="1045" y="316" class="t-security" font-size="7" text-anchor="middle">gcrypt:</text>
-        </g>
-
-        <g id="node-cloud_storage" data-node-id="cloud_storage" data-node-label="Cloud Backend" tabindex="0" role="button" aria-label="Focus Cloud Backend, Drive / S3 / Union Pool, Remote Storage Infrastructure, Google Cloud" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="Drive / S3 / Union Pool" data-node-tag="cold storage" data-node-context="Remote Storage Infrastructure" data-node-brand="Google Cloud" data-node-brand-id="google-cloud" data-node-brand-status="preset" data-node-brand-source="https://cloud.google.com">
-          <title>Cloud Backend · Drive / S3 / Union Pool · Remote Storage Infrastructure · cold storage · Google Cloud</title>
-          <rect x="970" y="450" width="150" height="64" rx="6" class="c-mask"/>
-          <rect x="970" y="450" width="150" height="64" rx="6" class="c-cloud" data-animate="node" style="--step:9" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(976 456) scale(0.6875)">
-            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
-          </g>
-          <g aria-hidden="true" data-brand-mark="google-cloud" data-brand-title="Google Cloud" data-brand-status="preset" data-brand-source="https://cloud.google.com" class="brand-mark" transform="translate(1098 456)">
+          <g aria-hidden="true" data-brand-mark="google-cloud" data-brand-title="Google Cloud" data-brand-status="preset" data-brand-source="https://cloud.google.com" class="brand-mark" transform="translate(1118 346)">
             <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
             <path d="M12.19 2.38a9.344 9.344 0 0 0-9.234 6.893c.053-.02-.055.013 0 0-3.875 2.551-3.922 8.11-.247 10.941l.006-.007-.007.03a6.717 6.717 0 0 0 4.077 1.356h5.173l.03.03h5.192c6.687.053 9.376-8.605 3.835-12.35a9.365 9.365 0 0 0-2.821-4.552l-.043.043.006-.05A9.344 9.344 0 0 0 12.19 2.38zm-.358 4.146c1.244-.04 2.518.368 3.486 1.15a5.186 5.186 0 0 1 1.862 4.078v.518c3.53-.07 3.53 5.262 0 5.193h-5.193l-.008.009v-.04H6.785a2.59 2.59 0 0 1-1.067-.23h.001a2.597 2.597 0 1 1 3.437-3.437l3.013-3.012A6.747 6.747 0 0 0 8.11 8.24c.018-.01.04-.026.054-.023a5.186 5.186 0 0 1 3.67-1.69z" transform="translate(3 3) scale(0.4166666666666667)" fill="#4285F4"/>
             <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1045" y="480" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Cloud Backend</text>
-        <text data-detail="context" x="1045" y="496" class="t-muted" font-size="9" text-anchor="middle">Drive / S3 / Union Pool</text>
-        <text data-detail="fine" x="1045" y="506" class="t-cloud" font-size="7" text-anchor="middle">cold storage</text>
+          <text data-node-label="" data-detail-anchor="" x="1065" y="370" class="t-primary" font-size="8" font-weight="600" text-anchor="middle">Cloud Infrastructure</text>
+        <text data-detail="context" x="1065" y="386" class="t-muted" font-size="8.7" text-anchor="middle">Google Drive / S3 / B2 Pool</text>
+        <text data-detail="fine" x="1065" y="396" class="t-cloud" font-size="7" text-anchor="middle">cold tier</text>
         </g>
 
         <!-- Connection labels -->
-        <g data-detail="context" data-edge-from="clients" data-edge-to="mergerfs" data-edge-label="read / write" data-edge-key="0" data-edge-id="user-io">
-          <rect x="181.2" y="272" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="215" y="282" class="t-backend" font-size="8" text-anchor="middle">read / write</text>
+        <g data-detail="context" data-edge-from="clients" data-edge-to="mergerfs" data-edge-label="POSIX I/O" data-edge-key="0" data-edge-id="user-io">
+          <rect x="98.4" y="192" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="125" y="202" class="t-backend" font-size="8" text-anchor="middle">POSIX I/O</text>
         </g>
-        <g data-detail="context" data-edge-from="rclone_mount" data-edge-to="mergerfs" data-edge-label="cold stream" data-edge-key="1" data-edge-id="mount-to-mergerfs">
-          <rect x="293.6" y="138" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="325" y="148" class="t-muted" font-size="8" text-anchor="middle">cold stream</text>
+        <g data-detail="context" data-edge-from="watchdog" data-edge-to="mergerfs" data-edge-label="health probe" data-edge-key="1" data-edge-id="watchdog-probe">
+          <rect x="91.2" y="347" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="125" y="357" class="t-messagebus" font-size="8" text-anchor="middle">health probe</text>
         </g>
-        <g data-detail="context" data-edge-from="mergerfs" data-edge-to="local_cache" data-edge-label="instant write" data-edge-key="2" data-edge-id="mergerfs-to-cache">
-          <rect x="413.8" y="212" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="450" y="222" class="t-backend" font-size="8" text-anchor="middle">instant write</text>
+        <g data-detail="context" data-edge-from="watchdog" data-edge-to="telegram_alert" data-edge-label="dispatch failure" data-edge-key="2" data-edge-id="watchdog-alert">
+          <rect x="81.6" y="497" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="125" y="507" class="t-security" font-size="8" text-anchor="middle">dispatch failure</text>
         </g>
-        <g data-detail="context" data-edge-from="mergerfs" data-edge-to="imm_sync" data-edge-label="bypass write" data-edge-key="3" data-edge-id="mergerfs-to-imm">
-          <rect x="416.2" y="332" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="450" y="342" class="t-messagebus" font-size="8" text-anchor="middle">bypass write</text>
+        <g data-detail="context" data-edge-from="mergerfs" data-edge-to="local_cache" data-edge-label="instant write" data-edge-key="3" data-edge-id="write-fast">
+          <rect x="198.8" y="227" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="235" y="237" class="t-backend" font-size="8" text-anchor="middle">instant write</text>
         </g>
-        <g data-detail="context" data-edge-from="local_cache" data-edge-to="tier_sync" data-edge-label="&gt;15m / LRU" data-edge-key="4" data-edge-id="cache-to-sync">
-          <rect x="666" y="152" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="695" y="162" class="t-muted" font-size="8" text-anchor="middle">&gt;15m / LRU</text>
+        <g data-detail="context" data-edge-from="mergerfs" data-edge-to="imm_sync" data-edge-label="spool write" data-edge-key="4" data-edge-id="write-bypass">
+          <rect x="203.6" y="302" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="235" y="312" class="t-messagebus" font-size="8" text-anchor="middle">spool write</text>
         </g>
-        <g data-detail="context" data-edge-from="tier_sync" data-edge-to="rclone_crypt" data-edge-label="rclone move" data-edge-key="5" data-edge-id="sync-to-crypt">
-          <rect x="898.6" y="212" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="930" y="222" class="t-security" font-size="8" text-anchor="middle">rclone move</text>
+        <g data-detail="context" data-edge-from="local_cache" data-edge-to="tier_sync" data-edge-label="LRU demotion" data-edge-key="5" data-edge-id="cache-eviction">
+          <rect x="446.2" y="198" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="480" y="208" class="t-muted" font-size="8" text-anchor="middle">LRU demotion</text>
         </g>
-        <g data-detail="context" data-edge-from="imm_sync" data-edge-to="imm_watcher" data-edge-label="watch queue" data-edge-key="6" data-edge-id="imm-to-watcher">
-          <rect x="663.6" y="392" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="695" y="402" class="t-messagebus" font-size="8" text-anchor="middle">watch queue</text>
+        <g data-detail="context" data-edge-from="imm_sync" data-edge-to="imm_watcher" data-edge-label="inotify events" data-edge-key="6" data-edge-id="queue-stream">
+          <rect x="441.4" y="348" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="480" y="358" class="t-messagebus" font-size="8" text-anchor="middle">inotify events</text>
         </g>
-        <g data-detail="context" data-edge-from="imm_watcher" data-edge-to="rclone_crypt" data-edge-label="offload" data-edge-key="7" data-edge-id="watcher-to-crypt">
-          <rect x="908.2" y="332" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="930" y="342" class="t-security" font-size="8" text-anchor="middle">offload</text>
+        <g data-detail="context" data-edge-from="tier_sync" data-edge-to="rclone_crypt" data-edge-label="staged upload" data-edge-key="7" data-edge-id="sync-to-crypt">
+          <rect x="798.8" y="223.5" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="835" y="233.5" class="t-backend" font-size="8" text-anchor="middle">staged upload</text>
         </g>
-        <g data-detail="context" data-edge-from="rclone_crypt" data-edge-to="cloud_storage" data-edge-label="push blobs" data-edge-key="8" data-edge-id="crypt-to-cloud">
-          <rect x="1016" y="328" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="1045" y="338" class="t-security" font-size="8" text-anchor="middle">push blobs</text>
+        <g data-detail="context" data-edge-from="imm_watcher" data-edge-to="rclone_crypt" data-edge-label="instant offload" data-edge-key="8" data-edge-id="stream-to-crypt">
+          <rect x="794" y="330.5" width="82" height="14" rx="3" class="c-mask"/>
+          <text x="835" y="340.5" class="t-messagebus" font-size="8" text-anchor="middle">instant offload</text>
         </g>
-        <g data-detail="context" data-edge-from="rclone_crypt" data-edge-to="rclone_mount" data-edge-label="VFS refresh" data-edge-key="9" data-edge-id="crypt-to-mount">
-          <rect x="653.6" y="20" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="685" y="30" class="t-messagebus" font-size="8" text-anchor="middle">VFS refresh</text>
+        <g data-detail="context" data-edge-from="rclone_crypt" data-edge-to="cloud_storage" data-edge-label="AES-256 blobs" data-edge-key="9" data-edge-id="crypt-to-cloud">
+          <rect x="913.8" y="305" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="950" y="315" class="t-security" font-size="8" text-anchor="middle">AES-256 blobs</text>
         </g>
-        <g data-detail="context" data-edge-from="watchdog" data-edge-to="mergerfs" data-edge-label="I/O probe" data-edge-key="10" data-edge-id="watchdog-to-mergerfs">
-          <rect x="298.4" y="430" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="325" y="440" class="t-messagebus" font-size="8" text-anchor="middle">I/O probe</text>
+        <g data-detail="context" data-edge-from="cloud_storage" data-edge-to="rclone_mount" data-edge-label="chunk cache" data-edge-key="10" data-edge-id="cloud-to-vfs">
+          <rect x="1033.6" y="320" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="1065" y="330" class="t-muted" font-size="8" text-anchor="middle">chunk cache</text>
         </g>
-        <g data-detail="context" data-edge-from="watchdog" data-edge-to="telegram_alert" data-edge-label="alert on hang" data-edge-key="11" data-edge-id="watchdog-to-alert">
-          <rect x="178.8" y="462" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="215" y="472" class="t-messagebus" font-size="8" text-anchor="middle">alert on hang</text>
+        <g data-detail="context" data-edge-from="rclone_mount" data-edge-to="mergerfs" data-edge-label="cold read stream" data-edge-key="11" data-edge-id="vfs-to-mergerfs">
+          <rect x="498.1" y="25" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="541.5" y="35" class="t-messagebus" font-size="8" text-anchor="middle">cold read stream</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="Linux Host (Rootless User Environment)">
-          <rect data-graph-role="structural-frame-label-mask" x="238" y="32" width="215.2" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="242" y="45" class="t-cloud" font-size="9" font-weight="600">Linux Host (Rootless User Environment)</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="User Space / Application Layer">
+          <rect data-graph-role="structural-frame-label-mask" x="38" y="80" width="172" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="42" y="93" class="t-cloud" font-size="9" font-weight="600">User Space / Application Layer</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="security-group" data-composition-frame-label="Unified Presentation Layer">
-          <rect data-graph-role="structural-frame-label-mask" x="242" y="50" width="150.4" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="246" y="63" class="t-security" font-size="9" font-weight="600">Unified Presentation Layer</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="security-group" data-composition-frame-label="Local SSD Fast Cache Tier">
+          <rect data-graph-role="structural-frame-label-mask" x="258" y="170" width="145" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="262" y="183" class="t-security" font-size="9" font-weight="600">Local SSD Fast Cache Tier</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Remote Storage Infrastructure">
-          <rect data-graph-role="structural-frame-label-mask" x="960" y="430" width="166.6" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="964" y="443" class="t-cloud" font-size="9" font-weight="600">Remote Storage Infrastructure</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Background Sync &amp; Eviction Engine">
+          <rect data-graph-role="structural-frame-label-mask" x="528" y="170" width="188.2" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="532" y="183" class="t-cloud" font-size="9" font-weight="600">Background Sync &amp; Eviction Engine</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="3" data-composition-frame-kind="security-group" data-composition-frame-label="Encrypted Cloud Infrastructure">
+          <rect data-graph-role="structural-frame-label-mask" x="978" y="170" width="172" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="982" y="183" class="t-security" font-size="9" font-weight="600">Encrypted Cloud Infrastructure</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
           <text x="40" y="644" class="t-primary" font-size="12" font-weight="650">Legend</text>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="40" data-legend-baseline="664" data-legend-width="78">
-            <rect x="40" y="655" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
-            <text x="62" y="664" class="t-muted" font-size="10" font-weight="500">Backend</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="664" data-legend-width="83">
+            <rect x="40" y="655" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="664" class="t-muted" font-size="10" font-weight="500">Frontend</text>
           </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Database" data-legend-x="140" data-legend-baseline="664" data-legend-width="83">
-            <rect x="140" y="655" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
-            <text x="162" y="664" class="t-muted" font-size="10" font-weight="500">Database</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="145" data-legend-baseline="664" data-legend-width="78">
+            <rect x="145" y="655" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="167" y="664" class="t-muted" font-size="10" font-weight="500">Backend</text>
           </g>
           <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud" data-legend-x="245" data-legend-baseline="664" data-legend-width="68">
             <rect x="245" y="655" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
