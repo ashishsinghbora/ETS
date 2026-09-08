@@ -25,7 +25,7 @@ All notable changes to **Encrypted Tiered Storage** will be documented in this f
 ### Added
 - **Hybrid LRU Eviction**: Implemented dual-pass eviction in `tier-sync.sh`:
   - Routine time rule: evicts files older than `SYNC_MIN_AGE`.
-  - Emergency panic rule: triggers when local disk usage $\ge$ `PANIC_THRESHOLD` (default 80%), sorting files by access time (oldest atime first) and evicting until usage $\le$ `PANIC_TARGET` (default 60%).
+  - Emergency panic rule: triggers when local disk usage >= `PANIC_THRESHOLD` (default 80%), sorting files by access time (oldest atime first) and evicting until usage <= `PANIC_TARGET` (default 60%).
   - Added `--dry-run` flag support to `tier-sync.sh`.
 - **Immediate Sync Bypass**: Added `.immediate_sync/` directory watched in real-time by `immediate-sync.service` using `inotifywait`. Files dropped here are immediately offloaded to the cloud tier, bypassing eviction schedules.
 - **Real-Time Quota Monitor**: Added `quota-monitor.sh` and `quota-monitor.timer` (running every 5m) which queries `rclone about` and writes human-readable capacity stats to `~/.quota.txt`. Added `statfs_ignore=ro` mergerfs mount option to pass through remote capacity to `df`.

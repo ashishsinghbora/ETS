@@ -69,7 +69,9 @@ flowchart TD
 
 The eviction engine in `tier-sync.sh` operates under a dual-pass rule:
 
-$$\text{Evict}(f) = (\text{FileAge}(f) \ge \text{SYNC\_MIN\_AGE}) \lor (\text{LocalCacheUsage\%} \ge \text{PANIC\_THRESHOLD})$$
+```text
+Evict(file) = (FileAge >= SYNC_MIN_AGE)  OR  (LocalCacheUsage% >= PANIC_THRESHOLD)
+```
 
 1. **Routine Rule (Time-Based):**
    Runs every `SYNC_INTERVAL` (e.g. 20 mins). Any file that has been sitting in the local cache for longer than `SYNC_MIN_AGE` (e.g. 15 mins) is moved to the encrypted cloud tier and evicted locally.
