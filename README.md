@@ -83,6 +83,17 @@ Cloud Storage (Encrypted Cold Tier) ─┘
 
 ## 🏗️ Architecture & Data Flow
 
+<p align="center">
+  <img src="docs/architecture/ets-system.svg" alt="ETS System Architecture Map" width="100%"/>
+</p>
+
+<p align="center">
+  <a href="https://htmlpreview.github.io/?https://github.com/ashishsinghbora/ETS/blob/main/docs/architecture/ets-system.html"><b>Explore Interactive System Map (HTML) ↗</b></a> · <a href="docs/architecture/ets-system.architecture.json"><b>Typed JSON Spec</b></a>
+</p>
+
+<details>
+<summary><b>View Mermaid / Text Flowchart</b></summary>
+
 ```mermaid
 flowchart TD
     App["📂 Application / User Access"] -->|Read / Write| Unified["🔀 Unified Tiered Mount: ~/mnt/cloud-tiered (mergerfs)"]
@@ -110,6 +121,8 @@ flowchart TD
         QuotaTimer["⏱️ quota-monitor.timer (every 5m)"] --> Quota["📊 quota-monitor.sh -> .quota.txt"]
     end
 ```
+
+</details>
 
 ---
 

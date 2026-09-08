@@ -1,0 +1,1291 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 680" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="blueprint" data-quality-profile="standard">
+        <title id="archify-diagram-title">Encrypted Tiered Storage (ETS) - System Architecture</title>
+        <desc id="archify-diagram-description">Rootless, client-side encrypted tiered storage pipeline for Linux</desc>
+        <!-- Definitions -->
+        <defs>
+<style type="text/css"><![CDATA[
+@font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: local('JetBrains Mono'), local('JetBrainsMono-Regular'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 500; src: local('JetBrains Mono'), local('JetBrainsMono-Regular'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 600; src: local('JetBrains Mono'), local('JetBrainsMono-Regular'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: local('JetBrains Mono'), local('JetBrainsMono-Regular'); }
+svg { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', monospace; }
+/* ==========================================================
+       THEME VARIABLES — switch by toggling [data-theme] on <html>
+       ========================================================== */
+    :root,
+    [data-theme="dark"] {
+  --bg: #020617;
+      --grid: #1e293b;
+      --text: #ffffff;
+      --text-muted: #94a3b8;
+      --text-dim: #475569;
+      /* UI chrome and menu hints need more contrast than SVG .t-dim accents */
+      --text-faint: #7d8da1;
+
+      --panel: rgba(15, 23, 42, 0.5);
+      --panel-border: #1e293b;
+      --lane-fill: rgba(15, 23, 42, 0.22);
+      --lane-stroke: #334155;
+
+      --arrow: #64748b;
+      --arrow-emphasis: #34d399;
+
+      /* Opaque mask color used behind semi-transparent component fills
+         so the arrows drawn underneath are properly hidden. */
+      --mask: #0f172a;
+
+      --frontend-fill:    rgba(8, 51, 68, 0.4);
+      --frontend-stroke:  #22d3ee;
+      --backend-fill:     rgba(6, 78, 59, 0.4);
+      --backend-stroke:   #34d399;
+      --database-fill:    rgba(76, 29, 149, 0.4);
+      --database-stroke:  #a78bfa;
+      --cloud-fill:       rgba(120, 53, 15, 0.3);
+      --cloud-stroke:     #fbbf24;
+      --security-fill:    rgba(136, 19, 55, 0.4);
+      --security-stroke:  #fb7185;
+      --messagebus-fill:  rgba(251, 146, 60, 0.3);
+      --messagebus-stroke:#fb923c;
+      --external-fill:    rgba(30, 41, 59, 0.5);
+      --external-stroke:  #94a3b8;
+
+      --toolbar-bg:       rgba(15, 23, 42, 0.8);
+      --toolbar-border:   #334155;
+      --toolbar-text:     #e2e8f0;
+      --toolbar-hover:    rgba(15, 23, 42, 0.95);
+      --toolbar-menu-bg:  #0f172a;
+}
+[data-theme="light"] {
+  --bg: #f8fafc;
+      --grid: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --text-faint: #64748b;
+
+      --panel: #ffffff;
+      --panel-border: #e2e8f0;
+      --lane-fill: rgba(248, 250, 252, 0.65);
+      --lane-stroke: #cbd5e1;
+
+      --arrow: #94a3b8;
+      --arrow-emphasis: #059669;
+
+      --mask: #ffffff;
+
+      --frontend-fill:    rgba(34, 211, 238, 0.15);
+      --frontend-stroke:  #0891b2;
+      --backend-fill:     rgba(52, 211, 153, 0.18);
+      --backend-stroke:   #059669;
+      --database-fill:    rgba(167, 139, 250, 0.2);
+      --database-stroke:  #7c3aed;
+      --cloud-fill:       rgba(251, 191, 36, 0.18);
+      --cloud-stroke:     #d97706;
+      --security-fill:    rgba(251, 113, 133, 0.15);
+      --security-stroke:  #e11d48;
+      --messagebus-fill:  rgba(251, 146, 60, 0.15);
+      --messagebus-stroke:#ea580c;
+      --external-fill:    rgba(148, 163, 184, 0.18);
+      --external-stroke:  #64748b;
+
+      --toolbar-bg:       rgba(255, 255, 255, 0.92);
+      --toolbar-border:   #cbd5e1;
+      --toolbar-text:     #334155;
+      --toolbar-hover:    #ffffff;
+      --toolbar-menu-bg:  #ffffff;
+}
+[data-preset="signal-flow"][data-theme="light"] {
+  --bg: #f4f9fc;
+      --grid: #d4e5ee;
+      --panel: rgba(255, 255, 255, 0.82);
+      --panel-border: #bfd5e2;
+      --lane-fill: rgba(232, 243, 248, 0.62);
+      --lane-stroke: #a9c5d5;
+      --text: #102638;
+      --text-muted: #587287;
+      --text-dim: #8aa2b4;
+      --text-faint: #668397;
+      --mask: #ffffff;
+      --frontend-fill: rgba(6, 182, 212, 0.09);
+      --frontend-stroke: #0789a1;
+      --backend-fill: rgba(5, 150, 105, 0.09);
+      --backend-stroke: #087f69;
+      --database-fill: rgba(124, 58, 237, 0.09);
+      --database-stroke: #7254c7;
+      --cloud-fill: rgba(217, 119, 6, 0.08);
+      --cloud-stroke: #b9670b;
+      --security-fill: rgba(225, 29, 72, 0.08);
+      --security-stroke: #c53a59;
+      --messagebus-fill: rgba(234, 88, 12, 0.08);
+      --messagebus-stroke: #c65f27;
+      --external-fill: rgba(100, 116, 139, 0.1);
+      --external-stroke: #607a8c;
+      --arrow: #7b97aa;
+      --arrow-emphasis: #0d9488;
+}
+[data-preset="blueprint"][data-theme="light"] {
+  --bg: #edf7fa;
+      --grid: #b5d5e1;
+      --panel: rgba(249, 253, 255, 0.94);
+      --panel-border: #78aabd;
+      --lane-fill: rgba(210, 232, 240, 0.42);
+      --lane-stroke: #83b2c4;
+      --text: #123344;
+      --text-muted: #4e7486;
+      --text-dim: #86a6b4;
+      --text-faint: #668c9d;
+      --mask: #f9fdff;
+      --frontend-fill: rgba(8, 145, 178, 0.08);
+      --frontend-stroke: #087f9c;
+      --backend-fill: rgba(5, 128, 101, 0.08);
+      --backend-stroke: #08755f;
+      --database-fill: rgba(100, 75, 180, 0.08);
+      --database-stroke: #6757a8;
+      --cloud-fill: rgba(181, 120, 15, 0.08);
+      --cloud-stroke: #a86609;
+      --security-fill: rgba(190, 48, 80, 0.07);
+      --security-stroke: #b32f50;
+      --messagebus-fill: rgba(196, 81, 22, 0.07);
+      --messagebus-stroke: #b65120;
+      --external-fill: rgba(79, 112, 128, 0.08);
+      --external-stroke: #506f7e;
+      --arrow: #6d93a5;
+      --arrow-emphasis: #087f69;
+      --toolbar-bg: rgba(247, 252, 254, 0.94);
+      --toolbar-border: #8ab5c5;
+      --toolbar-text: #294f61;
+      --toolbar-hover: #ffffff;
+      --toolbar-menu-bg: #f9fdff;
+}
+[data-preset="editorial"][data-theme="light"] {
+  --bg: #f2eee5;
+      --grid: #d8d0c2;
+      --panel: rgba(251, 248, 241, 0.97);
+      --panel-border: #c4b9a6;
+      --lane-fill: rgba(229, 221, 207, 0.42);
+      --lane-stroke: #b8aa94;
+      --text: #242018;
+      --text-muted: #6f6658;
+      --text-dim: #a09788;
+      --text-faint: #817767;
+      --mask: #fbf8f1;
+      --frontend-fill: rgba(31, 117, 126, 0.09);
+      --frontend-stroke: #287e84;
+      --backend-fill: rgba(42, 119, 75, 0.09);
+      --backend-stroke: #397b53;
+      --database-fill: rgba(105, 75, 130, 0.09);
+      --database-stroke: #765d86;
+      --cloud-fill: rgba(157, 103, 31, 0.1);
+      --cloud-stroke: #9a671f;
+      --security-fill: rgba(153, 58, 52, 0.09);
+      --security-stroke: #9e463f;
+      --messagebus-fill: rgba(182, 70, 27, 0.09);
+      --messagebus-stroke: #ad4b25;
+      --external-fill: rgba(101, 91, 75, 0.09);
+      --external-stroke: #746b5e;
+      --arrow: #8a806f;
+      --arrow-emphasis: #bb4c23;
+      --toolbar-bg: rgba(251, 248, 241, 0.94);
+      --toolbar-border: #c4b9a6;
+      --toolbar-text: #40392f;
+      --toolbar-hover: #fffdf8;
+      --toolbar-menu-bg: #fbf8f1;
+}
+svg {
+  width: 100%;
+      min-width: min(900px, 100%);
+      display: block;
+      transform-origin: 0 0;
+      transition: transform 0.18s ease;
+}
+svg[data-chapter-handoff] [data-node-id][data-chapter-role="stay"] {
+  opacity: 1;
+}
+svg[data-chapter-handoff] [data-node-id][data-chapter-role="enter"] {
+  opacity: 0.78;
+}
+svg[data-chapter-handoff] [data-node-id][data-chapter-role="leave"] {
+  opacity: 0.26;
+}
+svg [data-node-id][data-chapter-role] {
+  opacity: 1 !important;
+}
+svg[data-chapter-preview] [data-node-id],
+      svg[data-chapter-preview] [data-edge-from] {
+  opacity: 1 !important; filter: none !important;
+}
+[data-theme="light"] #theme-icon {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cg fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10' cy='10' r='3.1'/%3E%3Cpath d='M10 2.2v1.4M10 16.4v1.4M2.2 10h1.4M16.4 10h1.4M4.5 4.5l1 1M14.5 14.5l1 1M15.5 4.5l-1 1M5.5 14.5l-1 1'/%3E%3C/g%3E%3C/svg%3E");
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cg fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10' cy='10' r='3.1'/%3E%3Cpath d='M10 2.2v1.4M10 16.4v1.4M2.2 10h1.4M16.4 10h1.4M4.5 4.5l1 1M14.5 14.5l1 1M15.5 4.5l-1 1M5.5 14.5l-1 1'/%3E%3C/g%3E%3C/svg%3E");
+}
+[data-theme="dark"] #theme-icon {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M15.2 12.7A6.3 6.3 0 017.3 4.8a6.3 6.3 0 107.9 7.9Z' fill='none' stroke='black' stroke-width='1.7' stroke-linejoin='round'/%3E%3C/svg%3E");
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M15.2 12.7A6.3 6.3 0 017.3 4.8a6.3 6.3 0 107.9 7.9Z' fill='none' stroke='black' stroke-width='1.7' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.c-mask {
+  fill: var(--mask); stroke: none;
+}
+.c-frontend {
+  fill: var(--frontend-fill);   stroke: var(--frontend-stroke);
+}
+.c-backend {
+  fill: var(--backend-fill);    stroke: var(--backend-stroke);
+}
+.c-database {
+  fill: var(--database-fill);   stroke: var(--database-stroke);
+}
+.c-cloud {
+  fill: var(--cloud-fill);      stroke: var(--cloud-stroke);
+}
+.c-security {
+  fill: var(--security-fill);   stroke: var(--security-stroke);
+}
+.c-messagebus {
+  fill: var(--messagebus-fill); stroke: var(--messagebus-stroke);
+}
+.c-external {
+  fill: var(--external-fill);   stroke: var(--external-stroke);
+}
+.t-muted {
+  fill: var(--text-muted);
+}
+.t-dim {
+  fill: var(--text-dim);
+}
+.t-frontend {
+  fill: var(--frontend-stroke);
+}
+.t-backend {
+  fill: var(--backend-stroke);
+}
+.t-database {
+  fill: var(--database-stroke);
+}
+.t-cloud {
+  fill: var(--cloud-stroke);
+}
+.t-security {
+  fill: var(--security-stroke);
+}
+.t-messagebus {
+  fill: var(--messagebus-stroke);
+}
+.t-external {
+  fill: var(--external-stroke);
+}
+svg .semantic-sigil > * {
+  vector-effect: non-scaling-stroke;
+}
+svg .semantic-sigil .sigil-fill {
+  fill: currentColor; stroke: none;
+}
+svg .s-frontend {
+  color: var(--frontend-stroke);
+}
+svg .s-backend {
+  color: var(--backend-stroke);
+}
+svg .s-database {
+  color: var(--database-stroke);
+}
+svg .s-cloud {
+  color: var(--cloud-stroke);
+}
+svg .s-security {
+  color: var(--security-stroke);
+}
+svg .s-messagebus {
+  color: var(--messagebus-stroke);
+}
+svg .s-external {
+  color: var(--external-stroke);
+}
+svg .brand-mark-badge {
+  fill: #fff; stroke: none;
+}
+svg .brand-mark-frame {
+  fill: none;
+      stroke: #cbd5e1;
+      stroke-width: 0.8;
+      vector-effect: non-scaling-stroke;
+}
+svg .brand-mark-fallback {
+  fill: none;
+      stroke: #475569;
+      stroke-width: 1.15;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+}
+svg[data-preset="blueprint"] .brand-mark-badge,
+    svg[data-preset="blueprint"] .brand-mark-frame {
+  rx: 1px;
+}
+svg [data-detail-anchor] {
+  transform-box: fill-box;
+      transform-origin: center;
+      transition: transform 160ms ease;
+}
+/* Focus, lens, preview, route, and story states are stronger reader intent than
+       the global zoom level. Reveal only their exact semantic matches. */
+    svg[data-focus-active] [data-focus-match][data-detail],
+    svg[data-focus-active] [data-focus-match] [data-detail],
+    svg[data-reach-active] [data-reach-match][data-detail],
+    svg[data-reach-active] [data-reach-match] [data-detail],
+    svg[data-lens-active] [data-lens-match][data-detail],
+    svg[data-lens-active] [data-lens-match] [data-detail],
+    svg[data-legend-preview-active] [data-legend-preview-match][data-detail],
+    svg[data-legend-preview-active] [data-legend-preview-match] [data-detail],
+    svg[data-intent-trace-active] [data-intent-trace-match][data-detail],
+    svg[data-intent-trace-active] [data-intent-trace-match] [data-detail],
+    svg[data-route-active] [data-route-match][data-detail],
+    svg[data-route-active] [data-route-match] [data-detail],
+    svg[data-story-active] [data-story-step][data-detail],
+    svg[data-story-active] [data-story-step] [data-detail],
+    svg[data-relationship-preview-active] [data-relationship-preview][data-detail],
+    svg[data-relationship-preview-active] [data-relationship-preview] [data-detail],
+    svg [data-node-id]:hover [data-detail],
+    svg [data-node-id]:focus-visible [data-detail] {
+  opacity: 1;
+      pointer-events: auto;
+}
+svg[data-focus-active] [data-focus-match] [data-detail-anchor],
+    svg[data-reach-active] [data-reach-match] [data-detail-anchor],
+    svg[data-lens-active] [data-lens-match] [data-detail-anchor],
+    svg[data-legend-preview-active] [data-legend-preview-match] [data-detail-anchor],
+    svg[data-intent-trace-active] [data-intent-trace-match] [data-detail-anchor],
+    svg[data-route-active] [data-route-match] [data-detail-anchor],
+    svg[data-story-active] [data-story-step] [data-detail-anchor],
+    svg [data-node-id]:hover [data-detail-anchor],
+    svg [data-node-id]:focus-visible [data-detail-anchor] {
+  transform: none;
+}
+.a-emphasis {
+  stroke: var(--arrow-emphasis); fill: none;
+}
+.a-security {
+  stroke: var(--security-stroke); fill: none; stroke-dasharray: 5,5;
+}
+.a-dashed {
+  stroke: var(--database-stroke); fill: none; stroke-dasharray: 4,4;
+}
+.m-emphasis {
+  fill: var(--arrow-emphasis);
+}
+.m-security {
+  fill: var(--security-stroke);
+}
+.m-dashed {
+  fill: var(--database-stroke);
+}
+svg [data-edge-from] {
+  transition: opacity 0.18s ease, filter 0.18s ease;
+}
+svg [data-node-id]:hover,
+    svg [data-node-id]:focus-visible {
+  filter: drop-shadow(0 0 7px var(--frontend-stroke));
+      outline: none;
+}
+svg [data-node-id]:hover .source-evidence-beacon,
+    svg [data-node-id]:focus-visible .source-evidence-beacon,
+    svg [data-node-id][data-focus-selected] .source-evidence-beacon {
+  opacity: 1;
+      filter: drop-shadow(0 0 4px color-mix(in srgb, var(--backend-stroke) 72%, transparent));
+}
+svg[data-preset="signal-flow"] .source-evidence-beacon {
+  opacity: 0.9;
+}
+svg[data-preset="blueprint"] .source-evidence-beacon rect {
+  rx: 0.8px;
+      filter: none;
+}
+svg [data-legend-kind][role="button"] {
+  cursor: pointer;
+}
+svg [data-legend-kind]:focus {
+  outline: none;
+}
+svg [data-legend-hit] {
+  fill: transparent;
+      stroke: transparent;
+      stroke-width: 1.4;
+      pointer-events: all;
+      vector-effect: non-scaling-stroke;
+      transition: stroke 150ms ease, stroke-width 150ms ease, filter 150ms ease;
+}
+svg [data-legend-count-badge] {
+  pointer-events: none;
+}
+svg [data-legend-count-badge] rect {
+  fill: var(--mask);
+      stroke: var(--panel-border);
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+}
+svg [data-legend-count-badge] text {
+  fill: var(--text-muted);
+      font-size: 8px;
+      font-weight: 700;
+      text-anchor: middle;
+}
+svg [data-legend-kind][role="button"]:hover [data-legend-hit] {
+  stroke: color-mix(in srgb, var(--database-stroke) 58%, transparent);
+}
+svg [data-legend-kind][role="button"]:focus-visible [data-legend-hit] {
+  stroke: var(--frontend-stroke);
+      stroke-width: 1.8;
+      filter: drop-shadow(0 0 3px var(--frontend-stroke));
+}
+svg [data-legend-kind][data-legend-selected] [data-legend-hit] {
+  stroke: var(--database-stroke);
+      stroke-width: 2.2;
+      stroke-dasharray: 3 2;
+}
+svg [data-legend-kind][data-legend-selected] [data-legend-count-badge] rect {
+  stroke: var(--database-stroke);
+      stroke-width: 1.8;
+}
+svg [data-legend-kind][data-legend-zero] {
+  opacity: 0.44;
+}
+svg[data-preset="signal-flow"] [data-legend-kind][data-legend-selected] [data-legend-hit] {
+  filter: drop-shadow(0 0 4px var(--database-stroke));
+}
+svg[data-preset="blueprint"] [data-legend-hit],
+    svg[data-preset="blueprint"] [data-legend-count-badge] rect {
+  rx: 0; filter: none;
+}
+svg[data-legend-preview-active] [data-node-id],
+    svg[data-legend-preview-active] [data-edge-from] {
+  opacity: 0.11;
+}
+svg[data-legend-preview-active] [data-legend-preview-match] {
+  opacity: 1;
+}
+svg[data-legend-preview-active] [data-legend-preview-peer] {
+  opacity: 0.62;
+}
+svg[data-legend-preview-active] [data-legend-preview-selected] {
+  filter: drop-shadow(0 0 8px var(--database-stroke));
+}
+svg[data-lens-active] [data-node-id],
+    svg[data-lens-active] [data-edge-from] {
+  opacity: 0.11;
+}
+svg[data-lens-active] [data-lens-match] {
+  opacity: 1;
+}
+svg[data-lens-active] [data-lens-peer] {
+  opacity: 0.62;
+}
+svg[data-lens-active] [data-lens-selected] {
+  filter: drop-shadow(0 0 10px var(--database-stroke));
+}
+svg[data-preset="signal-flow"] .semantic-lens-flow {
+  stroke-width: 3.7;
+      opacity: 1;
+}
+svg[data-preset="signal-flow"] .semantic-lens-flow[data-direction="out"],
+    svg[data-preset="signal-flow"] .semantic-lens-flow[data-direction="forward"] {
+  filter: drop-shadow(0 0 6px var(--frontend-stroke));
+}
+svg[data-preset="signal-flow"] .semantic-lens-flow[data-direction="in"],
+    svg[data-preset="signal-flow"] .semantic-lens-flow[data-direction="reverse"] {
+  filter: drop-shadow(0 0 6px var(--database-stroke));
+}
+svg[data-preset="signal-flow"] .semantic-lens-flow[data-direction="within"] {
+  filter: drop-shadow(0 0 6px var(--messagebus-stroke));
+}
+svg[data-preset="blueprint"] .semantic-lens-flow {
+  stroke-width: 2.45;
+      stroke-linecap: square;
+      filter: none;
+      opacity: 0.78;
+}
+svg[data-focus-active] [data-node-id],
+    svg[data-focus-active] [data-edge-from] {
+  opacity: 0.13;
+}
+svg[data-focus-active] [data-focus-match] {
+  opacity: 1;
+}
+svg[data-focus-active] [data-focus-selected] {
+  filter: drop-shadow(0 0 10px var(--frontend-stroke));
+}
+/* Authored Reachability is a bounded graph query over the relationships
+       already present in the artifact. Upstream walks incoming edges;
+       downstream walks outgoing edges. It never claims runtime causality and
+       changes only viewer emphasis, not canonical geometry or export bytes. */
+    svg[data-reach-active] [data-node-id],
+    svg[data-reach-active] [data-edge-from] {
+  opacity: 0.09;
+}
+svg[data-reach-active] [data-reach-match] {
+  opacity: 1;
+}
+svg[data-reach-active="upstream"] [data-reach-origin] {
+  filter: drop-shadow(0 0 11px var(--database-stroke));
+}
+svg[data-reach-active="downstream"] [data-reach-origin] {
+  filter: drop-shadow(0 0 11px var(--backend-stroke));
+}
+svg[data-reach-active="upstream"] [data-edge-from][data-reach-match] {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--database-stroke) 72%, transparent));
+}
+svg[data-reach-active="downstream"] [data-edge-from][data-reach-match] {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--backend-stroke) 72%, transparent));
+}
+svg[data-preset="blueprint"][data-reach-active] [data-reach-origin],
+    svg[data-preset="blueprint"][data-reach-active] [data-edge-from][data-reach-match] {
+  filter: none;
+}
+svg[data-preset="blueprint"] .relationship-hit-target:focus-visible .relationship-focus-rail {
+  stroke-linecap: square;
+      filter: none;
+}
+svg[data-relationship-direct-active] [data-node-id],
+    svg[data-relationship-direct-active] [data-edge-from] {
+  opacity: 0.16;
+}
+svg[data-relationship-direct-active] [data-relationship-preview],
+    svg[data-relationship-direct-active] [data-relationship-preview-node] {
+  opacity: 1;
+}
+svg[data-focus-active]:not([data-relationship-pin-active]) .relationship-hit-rail,
+    svg[data-story-active] .relationship-hit-rail,
+    svg[data-route-picking] .relationship-hit-rail,
+    svg[data-route-active] .relationship-hit-rail,
+    svg[data-lens-active] .relationship-hit-rail,
+    svg[data-chapter-preview] .relationship-hit-rail {
+  pointer-events: none;
+}
+svg[data-relationship-preview-active] [data-relationship-preview],
+    svg[data-relationship-preview-active] [data-relationship-preview-node] {
+  opacity: 1;
+}
+svg[data-relationship-preview-active] [data-relationship-preview] {
+  filter: drop-shadow(0 0 5px var(--arrow-emphasis));
+}
+svg[data-relationship-preview-active] [data-relationship-preview] path,
+    svg[data-relationship-preview-active] path[data-relationship-preview],
+    svg[data-relationship-preview-active] [data-relationship-preview] line,
+    svg[data-relationship-preview-active] line[data-relationship-preview],
+    svg[data-relationship-preview-active] [data-relationship-preview] polyline,
+    svg[data-relationship-preview-active] polyline[data-relationship-preview] {
+  stroke-width: 2.75;
+}
+svg[data-relationship-preview-active] [data-relationship-preview-source] {
+  filter: drop-shadow(0 0 7px var(--frontend-stroke));
+}
+svg[data-relationship-preview-active] [data-relationship-preview-target] {
+  filter: drop-shadow(0 0 7px var(--database-stroke));
+}
+svg[data-preset="signal-flow"] .relationship-flow-pulse {
+  stroke: var(--frontend-stroke);
+      stroke-width: 3.85;
+      filter: drop-shadow(0 0 7px var(--frontend-stroke));
+}
+svg[data-preset="blueprint"] .relationship-flow-pulse {
+  stroke-width: 2.5;
+      stroke-linecap: square;
+      filter: none;
+}
+svg[data-preset="editorial"] .relationship-flow-pulse {
+  stroke: var(--arrow-emphasis);
+      stroke-width: 2.75;
+      filter: none;
+}
+svg[data-preset="signal-flow"] .semantic-flow-token {
+  filter: drop-shadow(0 0 5px currentColor);
+}
+svg[data-preset="blueprint"] .semantic-flow-token {
+  filter: none;
+}
+svg[data-preset="editorial"] .semantic-flow-token {
+  filter: none;
+}
+/* Intent Trace is a temporary, pre-click exploration layer. Related
+       topology stays readable while a short viewer-only signal runs over
+       cloned edge geometry; the authored edge remains untouched underneath. */
+    svg[data-intent-trace-active] [data-node-id],
+    svg[data-intent-trace-active] [data-edge-from] {
+  opacity: 0.2;
+}
+svg[data-intent-trace-active] [data-intent-trace-match] {
+  opacity: 1;
+}
+svg[data-intent-trace-active] [data-intent-trace-selected] {
+  filter: drop-shadow(0 0 10px var(--frontend-stroke));
+}
+svg[data-preset="blueprint"] [data-intent-trace-selected],
+    svg[data-preset="blueprint"] .intent-trace-flow {
+  filter: none;
+      stroke-linecap: square;
+}
+svg[data-preset="editorial"] [data-intent-trace-selected],
+    svg[data-preset="editorial"] .intent-trace-flow {
+  filter: none;
+}
+svg[data-route-picking="target"] [data-route-candidate],
+    svg[data-route-picking="target"] [data-route-start] {
+  opacity: 1;
+}
+svg[data-route-picking] [data-node-id] {
+  cursor: crosshair;
+}
+svg[data-route-picking] [data-route-start] {
+  filter: drop-shadow(0 0 10px var(--frontend-stroke));
+}
+svg[data-route-active] [data-node-id],
+    svg[data-route-active] [data-edge-from] {
+  opacity: 0.11;
+}
+svg[data-route-active] [data-route-match] {
+  opacity: 1;
+}
+svg[data-route-active] [data-route-start] {
+  filter: drop-shadow(0 0 11px var(--frontend-stroke));
+}
+svg[data-route-active] [data-route-end] {
+  filter: drop-shadow(0 0 11px var(--security-stroke));
+}
+svg[data-route-active] [data-route-step]:not([data-route-start]):not([data-route-end]) {
+  filter: drop-shadow(0 0 7px var(--backend-stroke));
+}
+svg[data-route-journey] [data-route-match][data-route-journey-state="past"] {
+  opacity: 0.62;
+}
+svg[data-route-journey] [data-route-match][data-route-journey-state="future"] {
+  opacity: 0.34;
+}
+svg[data-route-journey] [data-route-match][data-route-journey-state="current"] {
+  opacity: 1;
+}
+svg[data-route-journey] [data-node-id][data-route-journey-current] {
+  filter: drop-shadow(0 0 10px var(--backend-stroke));
+}
+svg[data-route-journey] [data-edge-from][data-route-journey-current] {
+  opacity: 1;
+      filter: drop-shadow(0 0 6px var(--backend-stroke));
+}
+svg[data-preset="blueprint"] [data-route-start],
+    svg[data-preset="blueprint"] [data-route-end],
+    svg[data-preset="blueprint"] [data-route-step],
+    svg[data-preset="blueprint"] .route-probe-flow {
+  filter: none;
+      stroke-linecap: square;
+}
+svg[data-preset="blueprint"] .route-journey-flow {
+  filter: none;
+      stroke-linecap: square;
+}
+svg[data-preset="editorial"] [data-route-start],
+    svg[data-preset="editorial"] [data-route-end],
+    svg[data-preset="editorial"] [data-route-step],
+    svg[data-preset="editorial"] .route-probe-flow,
+    svg[data-preset="editorial"] .route-journey-flow {
+  filter: none;
+}
+svg[data-preset="editorial"] .c-grid {
+  stroke-dasharray: 1 4;
+      opacity: 0.48;
+}
+svg[data-preset="editorial"] .c-region {
+  fill: color-mix(in srgb, var(--cloud-fill) 48%, transparent);
+      stroke-dasharray: 9 4;
+}
+svg[data-preset="editorial"] [data-node-id]:hover,
+    svg[data-preset="editorial"] [data-node-id]:focus-visible,
+    svg[data-preset="editorial"][data-focus-active] [data-focus-selected] {
+  filter: drop-shadow(0 2px 2px color-mix(in srgb, var(--text) 18%, transparent));
+}
+svg[data-preset="blueprint"] .c-grid {
+  stroke-dasharray: 1 3;
+      opacity: 0.78;
+}
+svg[data-preset="blueprint"] .c-region {
+  fill: color-mix(in srgb, var(--cloud-fill) 58%, transparent);
+      stroke-dasharray: 12 4 2 4;
+}
+svg[data-preset="blueprint"] .c-security-group,
+    svg[data-preset="blueprint"] .c-lane {
+  stroke-dasharray: 7 3;
+}
+svg[data-preset="blueprint"] [data-node-id]:hover,
+    svg[data-preset="blueprint"] [data-node-id]:focus-visible {
+  filter: drop-shadow(0 0 3px var(--frontend-stroke));
+}
+svg[data-preset="blueprint"][data-focus-active] [data-focus-selected] {
+  filter: drop-shadow(0 0 3px var(--frontend-stroke));
+}
+svg[data-preset="blueprint"][data-focus-active][data-reach-active] [data-focus-selected][data-reach-origin] {
+  filter: none;
+}
+svg[data-preset="blueprint"][data-relationship-preview-active] [data-relationship-preview],
+    svg[data-preset="blueprint"][data-relationship-preview-active] [data-relationship-preview-source],
+    svg[data-preset="blueprint"][data-relationship-preview-active] [data-relationship-preview-target] {
+  filter: drop-shadow(0 0 3px var(--frontend-stroke));
+}
+svg[data-story-beat] [data-story-step] {
+  opacity: 0.22;
+      filter: saturate(0.42);
+      transition: opacity 180ms ease, filter 180ms ease;
+}
+svg[data-story-beat] [data-story-step][data-story-beat-state="past"] {
+  opacity: 0.72;
+      filter: saturate(0.82);
+}
+svg[data-story-beat] [data-story-step][data-story-beat-state="next"] {
+  opacity: 0.5;
+      filter: saturate(0.66);
+}
+svg[data-story-beat] [data-story-step][data-story-beat-state="active"] {
+  opacity: 1;
+      filter: drop-shadow(0 0 7px var(--frontend-stroke));
+      animation: archify-story-beat-node 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+svg[data-story-beat] [data-edge-from][data-story-beat-step] {
+  opacity: 0.16;
+      transition: opacity 160ms ease;
+}
+svg[data-story-beat] [data-edge-from][data-story-beat-step][data-story-beat-state="past"] {
+  opacity: 0.58;
+}
+svg[data-story-beat] [data-edge-from][data-story-beat-step][data-story-beat-state="next"] {
+  opacity: 0.34;
+}
+svg[data-story-beat] [data-edge-from][data-story-beat-step][data-story-beat-state="active"] {
+  opacity: 1;
+}
+svg[data-story-beat] .story-trail-flow {
+  opacity: 0; transition: opacity 160ms ease;
+}
+svg[data-story-beat] .story-trail-flow[data-story-beat-state="past"] {
+  opacity: 0.34;
+}
+svg[data-story-beat] .story-trail-flow[data-story-beat-state="next"] {
+  opacity: 0.2;
+}
+svg[data-story-beat] .story-trail-flow[data-story-beat-state="active"] {
+  opacity: 0.92;
+}
+svg[data-story-beat] .story-trail-flow[data-story-pulse="true"] {
+  stroke-dasharray: 2 13;
+      stroke-dashoffset: 30;
+      opacity: 0.92;
+      animation: archify-story-flow 0.78s linear 1 both;
+}
+svg[data-preset="blueprint"] .story-trail-flow {
+  stroke-linecap: square;
+      filter: none;
+      opacity: 0.5;
+}
+svg[data-preset="blueprint"][data-story-beat] [data-story-step][data-story-beat-state="active"] {
+  filter: none;
+      animation: none;
+}
+svg[data-preset="editorial"] .story-trail-flow {
+  filter: none;
+}
+svg[data-preset="editorial"][data-story-beat] [data-story-step][data-story-beat-state="active"] {
+  filter: drop-shadow(0 2px 2px color-mix(in srgb, var(--text) 16%, transparent));
+}
+/* Chapter Delta Preview is a static, pre-commit comparison between two
+       chapter focus sets. Symbols in the rail carry the meaning without color;
+       these SVG rules only make exact stable-ID membership easier to scan. */
+    svg[data-chapter-preview] [data-node-id],
+    svg[data-chapter-preview] [data-edge-from] {
+  opacity: 0.1 !important;
+      filter: none !important;
+      transition: none !important;
+}
+svg[data-chapter-preview] .story-trail-overlay {
+  opacity: 0.08 !important;
+}
+svg[data-chapter-preview] [data-node-id][data-chapter-preview-role="stay"] {
+  opacity: 0.76 !important;
+      filter: saturate(0.7) !important;
+}
+svg[data-chapter-preview] [data-node-id][data-chapter-preview-role="enter"] {
+  opacity: 1 !important;
+      filter: saturate(1.2) !important;
+}
+svg[data-chapter-preview] [data-node-id][data-chapter-preview-role="leave"] {
+  opacity: 0.28 !important;
+      filter: grayscale(0.72) !important;
+}
+svg[data-preset="blueprint"][data-chapter-preview] [data-node-id] {
+  filter: none !important;
+}
+.c-region {
+  fill: rgba(251, 191, 36, 0.05); stroke: var(--cloud-stroke); stroke-dasharray: 8,4;
+}
+.c-lane {
+  fill: var(--lane-fill); stroke: var(--lane-stroke); stroke-dasharray: 6,6;
+}
+svg[data-preset="signal-flow"][data-animation="trace"] [data-animate="edge"] {
+  stroke-linecap: round;
+      filter: drop-shadow(0 0 3px var(--arrow-emphasis));
+      animation-duration: 1.75s;
+}
+svg[data-preset="signal-flow"][data-animation="trace"] [data-animate="node"] {
+  animation-duration: 3.1s;
+}
+svg[data-preset="blueprint"][data-animation="trace"] [data-animate="edge"] {
+  stroke-linecap: square;
+      filter: none;
+      animation-duration: 2.15s;
+}
+svg[data-preset="blueprint"][data-animation="trace"] [data-animate="node"] {
+  animation-name: archify-blueprint-node-pulse;
+      animation-duration: 3.8s;
+}
+svg[data-preset="editorial"][data-animation="trace"] [data-animate="edge"] {
+  filter: none;
+      animation-duration: 2.2s;
+}
+svg[data-preset="editorial"][data-animation="trace"] [data-animate="node"] {
+  animation-name: archify-editorial-node-pulse;
+      animation-duration: 3.5s;
+}
+svg[data-animation="trace"] [data-animate] {
+  animation: none !important;
+        stroke-dashoffset: 0;
+}
+.guided-view-chapter,
+      svg[data-chapter-preview] [data-node-id],
+      svg[data-chapter-preview] [data-edge-from] {
+  transition: none !important;
+}
+svg[data-story-playing="true"] .story-trail-flow {
+  stroke-dasharray: none;
+        stroke-dashoffset: 0;
+        opacity: 0.55;
+}
+.source-evidence-beacon,
+      svg [data-node-id], svg [data-edge-from], svg [data-detail], svg [data-detail-anchor], svg [data-legend-hit], svg {
+  transition: none !important;
+}
+
+:root, svg {
+  --bg: #020617;
+  --grid: #1e293b;
+  --text: #ffffff;
+  --text-muted: #94a3b8;
+  --text-dim: #475569;
+  --text-faint: #7d8da1;
+  --panel: rgba(15, 23, 42, 0.5);
+  --panel-border: #1e293b;
+  --lane-fill: rgba(15, 23, 42, 0.22);
+  --lane-stroke: #334155;
+  --arrow: #64748b;
+  --arrow-emphasis: #34d399;
+  --mask: #0f172a;
+  --frontend-fill:    rgba(8, 51, 68, 0.4);
+  --frontend-stroke:  #22d3ee;
+  --backend-fill:     rgba(6, 78, 59, 0.4);
+  --backend-stroke:   #34d399;
+  --database-fill:    rgba(76, 29, 149, 0.4);
+  --database-stroke:  #a78bfa;
+  --cloud-fill:       rgba(120, 53, 15, 0.3);
+  --cloud-stroke:     #fbbf24;
+  --security-fill:    rgba(136, 19, 55, 0.4);
+  --security-stroke:  #fb7185;
+  --messagebus-fill:  rgba(251, 146, 60, 0.3);
+  --messagebus-stroke:#fb923c;
+  --external-fill:    rgba(30, 41, 59, 0.5);
+  --external-stroke:  #94a3b8;
+  --toolbar-bg:       rgba(15, 23, 42, 0.8);
+  --toolbar-border:   #334155;
+  --toolbar-text:     #e2e8f0;
+  --toolbar-hover:    rgba(15, 23, 42, 0.95);
+  --toolbar-menu-bg:  #0f172a;
+}
+
+@media (prefers-color-scheme: light) {
+  :root, svg {
+    --bg: #f8fafc;
+  --grid: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --text-faint: #64748b;
+  --panel: #ffffff;
+  --panel-border: #e2e8f0;
+  --lane-fill: rgba(248, 250, 252, 0.65);
+  --lane-stroke: #cbd5e1;
+  --arrow: #94a3b8;
+  --arrow-emphasis: #059669;
+  --mask: #ffffff;
+  --frontend-fill:    rgba(34, 211, 238, 0.15);
+  --frontend-stroke:  #0891b2;
+  --backend-fill:     rgba(52, 211, 153, 0.18);
+  --backend-stroke:   #059669;
+  --database-fill:    rgba(167, 139, 250, 0.2);
+  --database-stroke:  #7c3aed;
+  --cloud-fill:       rgba(251, 191, 36, 0.18);
+  --cloud-stroke:     #d97706;
+  --security-fill:    rgba(251, 113, 133, 0.15);
+  --security-stroke:  #e11d48;
+  --messagebus-fill:  rgba(251, 146, 60, 0.15);
+  --messagebus-stroke:#ea580c;
+  --external-fill:    rgba(148, 163, 184, 0.18);
+  --external-stroke:  #64748b;
+  --toolbar-bg:       rgba(255, 255, 255, 0.92);
+  --toolbar-border:   #cbd5e1;
+  --toolbar-text:     #334155;
+  --toolbar-hover:    #ffffff;
+  --toolbar-menu-bg:  #ffffff;
+  }
+}
+
+svg[data-theme=light] {
+  --bg: #f8fafc;
+  --grid: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --text-faint: #64748b;
+  --panel: #ffffff;
+  --panel-border: #e2e8f0;
+  --lane-fill: rgba(248, 250, 252, 0.65);
+  --lane-stroke: #cbd5e1;
+  --arrow: #94a3b8;
+  --arrow-emphasis: #059669;
+  --mask: #ffffff;
+  --frontend-fill:    rgba(34, 211, 238, 0.15);
+  --frontend-stroke:  #0891b2;
+  --backend-fill:     rgba(52, 211, 153, 0.18);
+  --backend-stroke:   #059669;
+  --database-fill:    rgba(167, 139, 250, 0.2);
+  --database-stroke:  #7c3aed;
+  --cloud-fill:       rgba(251, 191, 36, 0.18);
+  --cloud-stroke:     #d97706;
+  --security-fill:    rgba(251, 113, 133, 0.15);
+  --security-stroke:  #e11d48;
+  --messagebus-fill:  rgba(251, 146, 60, 0.15);
+  --messagebus-stroke:#ea580c;
+  --external-fill:    rgba(148, 163, 184, 0.18);
+  --external-stroke:  #64748b;
+  --toolbar-bg:       rgba(255, 255, 255, 0.92);
+  --toolbar-border:   #cbd5e1;
+  --toolbar-text:     #334155;
+  --toolbar-hover:    #ffffff;
+  --toolbar-menu-bg:  #ffffff;
+}
+
+svg[data-theme=dark] {
+  --bg: #020617;
+  --grid: #1e293b;
+  --text: #ffffff;
+  --text-muted: #94a3b8;
+  --text-dim: #475569;
+  --text-faint: #7d8da1;
+  --panel: rgba(15, 23, 42, 0.5);
+  --panel-border: #1e293b;
+  --lane-fill: rgba(15, 23, 42, 0.22);
+  --lane-stroke: #334155;
+  --arrow: #64748b;
+  --arrow-emphasis: #34d399;
+  --mask: #0f172a;
+  --frontend-fill:    rgba(8, 51, 68, 0.4);
+  --frontend-stroke:  #22d3ee;
+  --backend-fill:     rgba(6, 78, 59, 0.4);
+  --backend-stroke:   #34d399;
+  --database-fill:    rgba(76, 29, 149, 0.4);
+  --database-stroke:  #a78bfa;
+  --cloud-fill:       rgba(120, 53, 15, 0.3);
+  --cloud-stroke:     #fbbf24;
+  --security-fill:    rgba(136, 19, 55, 0.4);
+  --security-stroke:  #fb7185;
+  --messagebus-fill:  rgba(251, 146, 60, 0.3);
+  --messagebus-stroke:#fb923c;
+  --external-fill:    rgba(30, 41, 59, 0.5);
+  --external-stroke:  #94a3b8;
+  --toolbar-bg:       rgba(15, 23, 42, 0.8);
+  --toolbar-border:   #334155;
+  --toolbar-text:     #e2e8f0;
+  --toolbar-hover:    rgba(15, 23, 42, 0.95);
+  --toolbar-menu-bg:  #0f172a;
+}
+
+rect.c-bg-rect { fill: var(--bg); }
+
+]]></style>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-default" />
+          </marker>
+          <marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis" />
+          </marker>
+          <marker id="arrowhead-security" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-security" />
+          </marker>
+          <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-dashed" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background Grid -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- Boundaries (behind everything) -->
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Linux Host (Rootless User Environment)" x="234" y="28" width="902" height="506" rx="12" class="c-region" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="Unified Presentation Layer" x="238" y="46" width="174" height="488" rx="8" class="c-security-group" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="Remote Storage Infrastructure" x="956" y="426" width="178" height="108" rx="12" class="c-region" stroke-width="1"/>
+
+        <!-- Connection paths (before components for correct z-order) -->
+        <path data-edge-from="clients" data-edge-to="mergerfs" data-edge-label="read / write" data-edge-key="0" data-edge-id="user-io" data-composition-points="180,292;250,292" d="M 180 292 L 250 292" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="rclone_mount" data-edge-to="mergerfs" data-edge-label="cold stream" data-edge-key="1" data-edge-id="mount-to-mergerfs" data-composition-points="325,134;325,260" d="M 325 134 L 325 260" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="mergerfs" data-edge-to="local_cache" data-edge-label="instant write" data-edge-key="2" data-edge-id="mergerfs-to-cache" data-composition-points="400,292;450,292;450,172;500,172" d="M 400 292 L 442 292 Q 450 292 450 284 L 450 180 Q 450 172 458 172 L 500 172" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="mergerfs" data-edge-to="imm_sync" data-edge-label="bypass write" data-edge-key="3" data-edge-id="mergerfs-to-imm" data-composition-points="400,292;450,292;450,412;500,412" d="M 400 292 L 442 292 Q 450 292 450 300 L 450 404 Q 450 412 458 412 L 500 412" class="a-dashed" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="local_cache" data-edge-to="tier_sync" data-edge-label="&gt;15m / LRU" data-edge-key="4" data-edge-id="cache-to-sync" data-composition-points="650,172;740,172" d="M 650 172 L 740 172" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="tier_sync" data-edge-to="rclone_crypt" data-edge-label="rclone move" data-edge-key="5" data-edge-id="sync-to-crypt" data-composition-points="890,172;930,172;930,292;970,292" d="M 890 172 L 922 172 Q 930 172 930 180 L 930 284 Q 930 292 938 292 L 970 292" class="a-security" data-animate="edge" style="--step:5" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="imm_sync" data-edge-to="imm_watcher" data-edge-label="watch queue" data-edge-key="6" data-edge-id="imm-to-watcher" data-composition-points="650,412;740,412" d="M 650 412 L 740 412" class="a-dashed" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="imm_watcher" data-edge-to="rclone_crypt" data-edge-label="offload" data-edge-key="7" data-edge-id="watcher-to-crypt" data-composition-points="890,412;930,412;930,292;970,292" d="M 890 412 L 922 412 Q 930 412 930 404 L 930 300 Q 930 292 938 292 L 970 292" class="a-security" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="rclone_crypt" data-edge-to="cloud_storage" data-edge-label="push blobs" data-edge-key="8" data-edge-id="crypt-to-cloud" data-composition-points="1045,324;1045,450" d="M 1045 324 L 1045 450" class="a-security" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="rclone_crypt" data-edge-to="rclone_mount" data-edge-label="VFS refresh" data-edge-key="9" data-edge-id="crypt-to-mount" data-composition-points="1045,260;1045,40;325,40;325,70" d="M 1045 260 L 1045 48 Q 1045 40 1037 40 L 333 40 Q 325 40 325 48 L 325 70" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="watchdog" data-edge-to="mergerfs" data-edge-label="I/O probe" data-edge-key="10" data-edge-id="watchdog-to-mergerfs" data-composition-points="325,450;325,324" d="M 325 450 L 325 324" class="a-dashed" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="watchdog" data-edge-to="telegram_alert" data-edge-label="alert on hang" data-edge-key="11" data-edge-id="watchdog-to-alert" data-composition-points="250,482;180,482" d="M 250 482 L 180 482" class="a-dashed" data-animate="edge" style="--step:11" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+
+        <!-- Components -->
+        <g id="node-clients" data-node-id="clients" data-node-label="Applications" tabindex="0" role="button" aria-label="Focus Applications, Plex / Nextcloud / CLI, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="Plex / Nextcloud / CLI" data-node-context="Architecture component">
+          <title>Applications · Plex / Nextcloud / CLI · Architecture component</title>
+          <rect x="40" y="260" width="140" height="64" rx="6" class="c-mask"/>
+          <rect x="40" y="260" width="140" height="64" rx="6" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(46 266) scale(0.6875)">
+            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
+            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="110" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Applications</text>
+        <text data-detail="context" x="110" y="306" class="t-muted" font-size="9" text-anchor="middle">Plex / Nextcloud / CLI</text>
+        </g>
+
+        <g id="node-telegram_alert" data-node-id="telegram_alert" data-node-label="Telegram Alerts" tabindex="0" role="button" aria-label="Focus Telegram Alerts, Rate-limited (&lt;5/m), Architecture component, Telegram" aria-pressed="false" data-node-kind="external" data-node-sublabel="Rate-limited (&lt;5/m)" data-node-context="Architecture component" data-node-brand="Telegram" data-node-brand-id="telegram" data-node-brand-status="preset" data-node-brand-source="https://telegram.org/tour/screenshots">
+          <title>Telegram Alerts · Rate-limited (&lt;5/m) · Architecture component · Telegram</title>
+          <rect x="40" y="450" width="140" height="64" rx="6" class="c-mask"/>
+          <rect x="40" y="450" width="140" height="64" rx="6" class="c-external" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(46 456) scale(0.6875)">
+            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
+            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
+          </g>
+          <g aria-hidden="true" data-brand-mark="telegram" data-brand-title="Telegram" data-brand-status="preset" data-brand-source="https://telegram.org/tour/screenshots" class="brand-mark" transform="translate(158 456)">
+            <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
+            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" transform="translate(3 3) scale(0.4166666666666667)" fill="#26A5E4"/>
+            <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="110" y="480" class="t-primary" font-size="9.3" font-weight="600" text-anchor="middle">Telegram Alerts</text>
+        <text data-detail="context" x="110" y="496" class="t-muted" font-size="9" text-anchor="middle">Rate-limited (&lt;5/m)</text>
+        </g>
+
+        <g id="node-rclone_mount" data-node-id="rclone_mount" data-node-label="Remote FUSE Mount" tabindex="0" role="button" aria-label="Focus Remote FUSE Mount, ~/mnt/gcrypt-remote, Linux Host (Rootless User Environment) › Unified Presentation Layer" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="~/mnt/gcrypt-remote" data-node-tag="VFS cache" data-node-context="Linux Host (Rootless User Environment) › Unified Presentation Layer">
+          <title>Remote FUSE Mount · ~/mnt/gcrypt-remote · Linux Host (Rootless User Environment) › Unified Presentation Layer · VFS cache</title>
+          <rect x="250" y="70" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="250" y="70" width="150" height="64" rx="6" class="c-cloud" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(256 76) scale(0.6875)">
+            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="325" y="100" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Remote FUSE Mount</text>
+        <text data-detail="context" x="325" y="116" class="t-muted" font-size="9" text-anchor="middle">~/mnt/gcrypt-remote</text>
+        <text data-detail="fine" x="325" y="126" class="t-cloud" font-size="7" text-anchor="middle">VFS cache</text>
+        </g>
+
+        <g id="node-mergerfs" data-node-id="mergerfs" data-node-label="MergerFS Mount" tabindex="0" role="button" aria-label="Focus MergerFS Mount, ~/mnt/cloud-tiered, Linux Host (Rootless User Environment) › Unified Presentation Layer" aria-pressed="false" data-node-kind="backend" data-node-sublabel="~/mnt/cloud-tiered" data-node-tag="category.create=ff" data-node-context="Linux Host (Rootless User Environment) › Unified Presentation Layer">
+          <title>MergerFS Mount · ~/mnt/cloud-tiered · Linux Host (Rootless User Environment) › Unified Presentation Layer · category.create=ff</title>
+          <rect x="250" y="260" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="250" y="260" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(256 266) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="325" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">MergerFS Mount</text>
+        <text data-detail="context" x="325" y="306" class="t-muted" font-size="9" text-anchor="middle">~/mnt/cloud-tiered</text>
+        <text data-detail="fine" x="325" y="316" class="t-backend" font-size="7" text-anchor="middle">category.create=ff</text>
+        </g>
+
+        <g id="node-watchdog" data-node-id="watchdog" data-node-label="Mount Watchdog" tabindex="0" role="button" aria-label="Focus Mount Watchdog, watchdog.sh daemon, Linux Host (Rootless User Environment) › Unified Presentation Layer" aria-pressed="false" data-node-kind="security" data-node-sublabel="watchdog.sh daemon" data-node-tag="auto-recovery" data-node-context="Linux Host (Rootless User Environment) › Unified Presentation Layer">
+          <title>Mount Watchdog · watchdog.sh daemon · Linux Host (Rootless User Environment) › Unified Presentation Layer · auto-recovery</title>
+          <rect x="250" y="450" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="250" y="450" width="150" height="64" rx="6" class="c-security" data-animate="node" style="--step:10" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(256 456) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="325" y="480" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Mount Watchdog</text>
+        <text data-detail="context" x="325" y="496" class="t-muted" font-size="9" text-anchor="middle">watchdog.sh daemon</text>
+        <text data-detail="fine" x="325" y="506" class="t-security" font-size="7" text-anchor="middle">auto-recovery</text>
+        </g>
+
+        <g id="node-local_cache" data-node-id="local_cache" data-node-label="Fast Cache Tier" tabindex="0" role="button" aria-label="Focus Fast Cache Tier, ~/mnt/local-cache, Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="database" data-node-sublabel="~/mnt/local-cache" data-node-tag="NVMe / SSD" data-node-context="Linux Host (Rootless User Environment)">
+          <title>Fast Cache Tier · ~/mnt/local-cache · Linux Host (Rootless User Environment) · NVMe / SSD</title>
+          <rect x="500" y="140" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="500" y="140" width="150" height="64" rx="6" class="c-database" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(506 146) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="575" y="170" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Fast Cache Tier</text>
+        <text data-detail="context" x="575" y="186" class="t-muted" font-size="9" text-anchor="middle">~/mnt/local-cache</text>
+        <text data-detail="fine" x="575" y="196" class="t-database" font-size="7" text-anchor="middle">NVMe / SSD</text>
+        </g>
+
+        <g id="node-imm_sync" data-node-id="imm_sync" data-node-label="Immediate Queue" tabindex="0" role="button" aria-label="Focus Immediate Queue, .immediate_sync/, Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="backend" data-node-sublabel=".immediate_sync/" data-node-tag="bypass folder" data-node-context="Linux Host (Rootless User Environment)">
+          <title>Immediate Queue · .immediate_sync/ · Linux Host (Rootless User Environment) · bypass folder</title>
+          <rect x="500" y="380" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="500" y="380" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(506 386) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="575" y="410" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Immediate Queue</text>
+        <text data-detail="context" x="575" y="426" class="t-muted" font-size="9" text-anchor="middle">.immediate_sync/</text>
+        <text data-detail="fine" x="575" y="436" class="t-backend" font-size="7" text-anchor="middle">bypass folder</text>
+        </g>
+
+        <g id="node-tier_sync" data-node-id="tier_sync" data-node-label="Tier Sync Engine" tabindex="0" role="button" aria-label="Focus Tier Sync Engine, tier-sync.sh (flock), Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="tier-sync.sh (flock)" data-node-tag="Routine + Panic" data-node-context="Linux Host (Rootless User Environment)">
+          <title>Tier Sync Engine · tier-sync.sh (flock) · Linux Host (Rootless User Environment) · Routine + Panic</title>
+          <rect x="740" y="140" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="740" y="140" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(746 146) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="815" y="170" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Tier Sync Engine</text>
+        <text data-detail="context" x="815" y="186" class="t-muted" font-size="9" text-anchor="middle">tier-sync.sh (flock)</text>
+        <text data-detail="fine" x="815" y="196" class="t-backend" font-size="7" text-anchor="middle">Routine + Panic</text>
+        </g>
+
+        <g id="node-imm_watcher" data-node-id="imm_watcher" data-node-label="Immediate Watcher" tabindex="0" role="button" aria-label="Focus Immediate Watcher, immediate-sync.sh, Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="immediate-sync.sh" data-node-tag="inotify / poll" data-node-context="Linux Host (Rootless User Environment)">
+          <title>Immediate Watcher · immediate-sync.sh · Linux Host (Rootless User Environment) · inotify / poll</title>
+          <rect x="740" y="380" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="740" y="380" width="150" height="64" rx="6" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(746 386) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="815" y="410" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Immediate Watcher</text>
+        <text data-detail="context" x="815" y="426" class="t-muted" font-size="9" text-anchor="middle">immediate-sync.sh</text>
+        <text data-detail="fine" x="815" y="436" class="t-backend" font-size="7" text-anchor="middle">inotify / poll</text>
+        </g>
+
+        <g id="node-rclone_crypt" data-node-id="rclone_crypt" data-node-label="Rclone Crypt" tabindex="0" role="button" aria-label="Focus Rclone Crypt, AES-256-GCM client-side, Linux Host (Rootless User Environment)" aria-pressed="false" data-node-kind="security" data-node-sublabel="AES-256-GCM client-side" data-node-tag="gcrypt:" data-node-context="Linux Host (Rootless User Environment)">
+          <title>Rclone Crypt · AES-256-GCM client-side · Linux Host (Rootless User Environment) · gcrypt:</title>
+          <rect x="970" y="260" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="970" y="260" width="150" height="64" rx="6" class="c-security" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(976 266) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1045" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Rclone Crypt</text>
+        <text data-detail="context" x="1045" y="306" class="t-muted" font-size="9" text-anchor="middle">AES-256-GCM client-side</text>
+        <text data-detail="fine" x="1045" y="316" class="t-security" font-size="7" text-anchor="middle">gcrypt:</text>
+        </g>
+
+        <g id="node-cloud_storage" data-node-id="cloud_storage" data-node-label="Cloud Backend" tabindex="0" role="button" aria-label="Focus Cloud Backend, Drive / S3 / Union Pool, Remote Storage Infrastructure, Google Cloud" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="Drive / S3 / Union Pool" data-node-tag="cold storage" data-node-context="Remote Storage Infrastructure" data-node-brand="Google Cloud" data-node-brand-id="google-cloud" data-node-brand-status="preset" data-node-brand-source="https://cloud.google.com">
+          <title>Cloud Backend · Drive / S3 / Union Pool · Remote Storage Infrastructure · cold storage · Google Cloud</title>
+          <rect x="970" y="450" width="150" height="64" rx="6" class="c-mask"/>
+          <rect x="970" y="450" width="150" height="64" rx="6" class="c-cloud" data-animate="node" style="--step:9" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(976 456) scale(0.6875)">
+            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
+          </g>
+          <g aria-hidden="true" data-brand-mark="google-cloud" data-brand-title="Google Cloud" data-brand-status="preset" data-brand-source="https://cloud.google.com" class="brand-mark" transform="translate(1098 456)">
+            <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
+            <path d="M12.19 2.38a9.344 9.344 0 0 0-9.234 6.893c.053-.02-.055.013 0 0-3.875 2.551-3.922 8.11-.247 10.941l.006-.007-.007.03a6.717 6.717 0 0 0 4.077 1.356h5.173l.03.03h5.192c6.687.053 9.376-8.605 3.835-12.35a9.365 9.365 0 0 0-2.821-4.552l-.043.043.006-.05A9.344 9.344 0 0 0 12.19 2.38zm-.358 4.146c1.244-.04 2.518.368 3.486 1.15a5.186 5.186 0 0 1 1.862 4.078v.518c3.53-.07 3.53 5.262 0 5.193h-5.193l-.008.009v-.04H6.785a2.59 2.59 0 0 1-1.067-.23h.001a2.597 2.597 0 1 1 3.437-3.437l3.013-3.012A6.747 6.747 0 0 0 8.11 8.24c.018-.01.04-.026.054-.023a5.186 5.186 0 0 1 3.67-1.69z" transform="translate(3 3) scale(0.4166666666666667)" fill="#4285F4"/>
+            <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1045" y="480" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Cloud Backend</text>
+        <text data-detail="context" x="1045" y="496" class="t-muted" font-size="9" text-anchor="middle">Drive / S3 / Union Pool</text>
+        <text data-detail="fine" x="1045" y="506" class="t-cloud" font-size="7" text-anchor="middle">cold storage</text>
+        </g>
+
+        <!-- Connection labels -->
+        <g data-detail="context" data-edge-from="clients" data-edge-to="mergerfs" data-edge-label="read / write" data-edge-key="0" data-edge-id="user-io">
+          <rect x="181.2" y="272" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="215" y="282" class="t-backend" font-size="8" text-anchor="middle">read / write</text>
+        </g>
+        <g data-detail="context" data-edge-from="rclone_mount" data-edge-to="mergerfs" data-edge-label="cold stream" data-edge-key="1" data-edge-id="mount-to-mergerfs">
+          <rect x="293.6" y="138" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="325" y="148" class="t-muted" font-size="8" text-anchor="middle">cold stream</text>
+        </g>
+        <g data-detail="context" data-edge-from="mergerfs" data-edge-to="local_cache" data-edge-label="instant write" data-edge-key="2" data-edge-id="mergerfs-to-cache">
+          <rect x="413.8" y="212" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="450" y="222" class="t-backend" font-size="8" text-anchor="middle">instant write</text>
+        </g>
+        <g data-detail="context" data-edge-from="mergerfs" data-edge-to="imm_sync" data-edge-label="bypass write" data-edge-key="3" data-edge-id="mergerfs-to-imm">
+          <rect x="416.2" y="332" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="450" y="342" class="t-messagebus" font-size="8" text-anchor="middle">bypass write</text>
+        </g>
+        <g data-detail="context" data-edge-from="local_cache" data-edge-to="tier_sync" data-edge-label="&gt;15m / LRU" data-edge-key="4" data-edge-id="cache-to-sync">
+          <rect x="666" y="152" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="695" y="162" class="t-muted" font-size="8" text-anchor="middle">&gt;15m / LRU</text>
+        </g>
+        <g data-detail="context" data-edge-from="tier_sync" data-edge-to="rclone_crypt" data-edge-label="rclone move" data-edge-key="5" data-edge-id="sync-to-crypt">
+          <rect x="898.6" y="212" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="930" y="222" class="t-security" font-size="8" text-anchor="middle">rclone move</text>
+        </g>
+        <g data-detail="context" data-edge-from="imm_sync" data-edge-to="imm_watcher" data-edge-label="watch queue" data-edge-key="6" data-edge-id="imm-to-watcher">
+          <rect x="663.6" y="392" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="695" y="402" class="t-messagebus" font-size="8" text-anchor="middle">watch queue</text>
+        </g>
+        <g data-detail="context" data-edge-from="imm_watcher" data-edge-to="rclone_crypt" data-edge-label="offload" data-edge-key="7" data-edge-id="watcher-to-crypt">
+          <rect x="908.2" y="332" width="43.6" height="14" rx="3" class="c-mask"/>
+          <text x="930" y="342" class="t-security" font-size="8" text-anchor="middle">offload</text>
+        </g>
+        <g data-detail="context" data-edge-from="rclone_crypt" data-edge-to="cloud_storage" data-edge-label="push blobs" data-edge-key="8" data-edge-id="crypt-to-cloud">
+          <rect x="1016" y="328" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="1045" y="338" class="t-security" font-size="8" text-anchor="middle">push blobs</text>
+        </g>
+        <g data-detail="context" data-edge-from="rclone_crypt" data-edge-to="rclone_mount" data-edge-label="VFS refresh" data-edge-key="9" data-edge-id="crypt-to-mount">
+          <rect x="653.6" y="20" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="685" y="30" class="t-messagebus" font-size="8" text-anchor="middle">VFS refresh</text>
+        </g>
+        <g data-detail="context" data-edge-from="watchdog" data-edge-to="mergerfs" data-edge-label="I/O probe" data-edge-key="10" data-edge-id="watchdog-to-mergerfs">
+          <rect x="298.4" y="430" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="325" y="440" class="t-messagebus" font-size="8" text-anchor="middle">I/O probe</text>
+        </g>
+        <g data-detail="context" data-edge-from="watchdog" data-edge-to="telegram_alert" data-edge-label="alert on hang" data-edge-key="11" data-edge-id="watchdog-to-alert">
+          <rect x="178.8" y="462" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="215" y="472" class="t-messagebus" font-size="8" text-anchor="middle">alert on hang</text>
+        </g>
+
+        <!-- Boundary labels (foreground masks keep routes out of titles) -->
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="Linux Host (Rootless User Environment)">
+          <rect data-graph-role="structural-frame-label-mask" x="238" y="32" width="215.2" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="242" y="45" class="t-cloud" font-size="9" font-weight="600">Linux Host (Rootless User Environment)</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="security-group" data-composition-frame-label="Unified Presentation Layer">
+          <rect data-graph-role="structural-frame-label-mask" x="242" y="50" width="150.4" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="246" y="63" class="t-security" font-size="9" font-weight="600">Unified Presentation Layer</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Remote Storage Infrastructure">
+          <rect data-graph-role="structural-frame-label-mask" x="960" y="430" width="166.6" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="964" y="443" class="t-cloud" font-size="9" font-weight="600">Remote Storage Infrastructure</text>
+        </g>
+
+        <!-- Legend -->
+        <g data-legend="" data-legend-bridge="">
+          <text x="40" y="644" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="40" data-legend-baseline="664" data-legend-width="78">
+            <rect x="40" y="655" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="62" y="664" class="t-muted" font-size="10" font-weight="500">Backend</text>
+          </g>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Database" data-legend-x="140" data-legend-baseline="664" data-legend-width="83">
+            <rect x="140" y="655" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
+            <text x="162" y="664" class="t-muted" font-size="10" font-weight="500">Database</text>
+          </g>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud" data-legend-x="245" data-legend-baseline="664" data-legend-width="68">
+            <rect x="245" y="655" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
+            <text x="267" y="664" class="t-muted" font-size="10" font-weight="500">Cloud</text>
+          </g>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Security" data-legend-x="335" data-legend-baseline="664" data-legend-width="83">
+            <rect x="335" y="655" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
+            <text x="357" y="664" class="t-muted" font-size="10" font-weight="500">Security</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External" data-legend-x="440" data-legend-baseline="664" data-legend-width="83">
+            <rect x="440" y="655" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="462" y="664" class="t-muted" font-size="10" font-weight="500">External</text>
+          </g>
+        </g>
+      </svg>
