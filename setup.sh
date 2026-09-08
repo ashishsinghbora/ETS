@@ -282,6 +282,30 @@ else
     success "exiftool is available."
 fi
 
+info "Checking Python environment and TUI packages (textual, rich)..."
+if command -v python3 &>/dev/null; then
+    if ! python3 -c "import textual, rich" &>/dev/null; then
+        info "Installing optional visual dashboard dependencies (textual, rich)..."
+        python3 -m pip install --user textual rich 2>/dev/null || pip3 install --user textual rich --break-system-packages 2>/dev/null || warn "Could not install textual/rich automatically. ets-monitor will run in CLI mode."
+    fi
+    success "Python environment is ready."
+else
+    warn "python3 is not installed. Install python3 for alert scripts and ets-monitor."
+fi
+
+# Ensure ~/.local/bin is permanently in user shell PATH across bashrc, zshrc, and profile
+for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
+    if [ -f "$rc" ] && ! grep -q 'PATH=.*\.local/bin' "$rc"; then
+        # shellcheck disable=SC2016
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >>"$rc"
+    fi
+done
+
+# Create root-level convenience symlinks
+ln -sf scripts/ets-monitor "${SCRIPT_DIR}/ets-monitor"
+ln -sf scripts/ets-setup "${SCRIPT_DIR}/ets-setup"
+ln -sf scripts/doctor.sh "${SCRIPT_DIR}/doctor.sh"
+
 # 4. Verify Cloud Remote
 info "Checking cloud remote ${CLOUD_REMOTE}:..."
 if ! rclone lsd "${CLOUD_REMOTE}:" &>/dev/null; then
