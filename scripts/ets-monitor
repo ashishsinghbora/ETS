@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+"""
+Encrypted Tiered Storage (ETS) - Real-time Terminal Dashboard & Monitor
+Built with Textual and Rich.
+"""
+import os
+import shutil
+import subprocess
+import sys
+import time
+
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Container, Horizontal, Vertical
+from textual.widgets import Footer, Header, RichLog, Static
+
+
+def run_cmd(cmd, timeout=5):
+    try:
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        return res.stdout.strip()
+    except Exception:
+        return ""
+
+
+def get_service_status(unit_name):
+    out = run_cmd(f"systemctl --user is-active {unit_name}")
+    if out == "active":
+        return "[bold green]ACTIVE[/bold green]"
+    elif out in ("inactive", "failed", "deactivating"):
+        return f"[bold red]{out.upper()}[/bold red]"
+    elif out == "":
+        return "[dim]UNKNOWN[/dim]"
+    return f"[yellow]{out.upper()}[/yellow]"
+
+
+def get_mount_status(path):
+    if not path or not os.path.exists(path):
+        return "[bold red]MISSING[/bold red]"
+    res = subprocess.run(["mountpoint", "-q", path])
+    if res.returncode == 0:
+        return "[bold green]MOUNTED[/bold green]"
+    return "[bold red]UNMOUNTED[/bold red]"
+
+
+class ETSMonitor(App):
+    CSS = """
+    Screen {
+        background: $surface;
+        layout: vertical;
+    }
+    #top-row {
+        height: 14;
+        margin-bottom: 1;
+    }
+    .panel-box {
+        border: round $primary;
+        padding: 0 1;
+        height: 100%;
+    }
+    #storage-box {
+        width: 50%;
+    }
+    #services-box {
+        width: 50%;
+    }
+    #log-container {
+        height: 1fr;
+        border: round $accent;
+        padding: 0 1;
+    }
+    #action-banner {
+        height: 1;
+        background: $primary-darken-2;
+        color: $text;
+        text-align: center;
+        text-style: bold;
+    }
+    """
+
+    TITLE = "ETS Live Storage Monitor"
+    SUB_TITLE = "Real-time Tiering Dashboard & Controls"
+
+    BINDINGS = [
+        Binding("f", "trigger_sync", "Full Sync", show=True),
+        Binding("s", "trigger_filer", "Smart Filer", show=True),
+        Binding("p", "trigger_panic", "Panic Eviction", show=True),
+        Binding("r", "refresh_all", "Refresh", show=True),
+        Binding("q", "quit", "Quit", show=True),
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self.config = self.load_config()
+
+    def load_config(self):
+        cfg = {
+            "LOCAL_CACHE_DIR": os.path.expanduser("~/mnt/local-cache"),
+            "CLOUD_REMOTE_MOUNT": os.path.expanduser("~/mnt/gcrypt-remote"),
+            "TIERED_MOUNT": os.path.expanduser("~/mnt/cloud-tiered"),
+            "CRYPT_REMOTE": "gcrypt",
+        }
+        env_file = os.path.expanduser("~/.config/encrypted-tiered-storage/storage.env")
+        if os.path.exists(env_file):
+            try:
+                with open(env_file) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            cfg[k.strip()] = v.strip().strip('"').strip("'")
+            except Exception:
+                pass
+        return cfg
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Horizontal(id="top-row"):
+            yield Static(id="storage-info", classes="panel-box", expand=True)
+            yield Static(id="services-info", classes="panel-box", expand=True)
+        yield Static("Press [F] Full Sync | [S] Smart Filer | [P] Panic LRU | [R] Refresh | [Q] Quit", id="action-banner")
+        with Container(id="log-container"):
+            yield RichLog(id="activity-log", highlight=True, markup=True)
+        yield Footer()
+
+    def on_mount(self) -> None:
+        log_widget = self.query_one("#activity-log", RichLog)
+        log_widget.write("[bold cyan]ETS Monitor initialized.[/bold cyan] Monitoring active user units and storage tiers.")
+        self.refresh_metrics()
+        self.set_interval(3.0, self.refresh_metrics)
+
+    def refresh_metrics(self) -> None:
+        # Storage tiers
+        cache_dir = self.config.get("LOCAL_CACHE_DIR")
+        cloud_mount = self.config.get("CLOUD_REMOTE_MOUNT")
+        tiered_mount = self.config.get("TIERED_MOUNT")
+
+        cache_mount_status = get_mount_status(cache_dir) if os.path.exists(cache_dir) else "[dim]DIR[/dim]"
+        cloud_mount_status = get_mount_status(cloud_mount)
+        tiered_mount_status = get_mount_status(tiered_mount)
+
+        # Cache disk usage
+        cache_usage_str = "N/A"
+        cache_gauge = "[dim]-----------[/dim]"
+        if os.path.exists(cache_dir):
+            try:
+                total, used, free = shutil.disk_usage(cache_dir)
+                pct = int((used / total) * 100) if total > 0 else 0
+                used_gb = used / (1024**3)
+                total_gb = total / (1024**3)
+                cache_usage_str = f"{used_gb:.1f}G / {total_gb:.1f}G ({pct}%)"
+                filled = pct // 10
+                bar = "█" * filled + "░" * (10 - filled)
+                color = "green" if pct < 70 else ("yellow" if pct < 85 else "red")
+                cache_gauge = f"[{color}][{bar}] {pct}%[/{color}]"
+            except Exception:
+                pass
+
+        # Quota file
+        quota_file = os.path.join(tiered_mount, ".quota.txt")
+        cloud_quota_line = "Checking..."
+        if os.path.exists(quota_file):
+            try:
+                with open(quota_file) as qf:
+                    for line in qf:
+                        if line.startswith("Cloud Capacity:"):
+                            cloud_quota_line = line.split(":", 1)[1].strip()
+                            break
+            except Exception:
+                pass
+        if cloud_quota_line == "Checking...":
+            about = run_cmd(f"rclone about {self.config.get('CRYPT_REMOTE', 'gcrypt')}: 2>/dev/null | head -n2")
+            if about:
+                cloud_quota_line = " ".join(about.splitlines())
+            else:
+                cloud_quota_line = "Configured remote"
+
+        storage_text = (
+            f"[bold cyan]STORAGE TIERS[/bold cyan]\n"
+            f"[bold]Unified Mount:[/bold] {tiered_mount_status} {tiered_mount}\n"
+            f"[bold]Local Cache Tier:[/bold] {cache_gauge}\n"
+            f"  Usage: {cache_usage_str}\n"
+            f"  Path:  {cache_dir}\n"
+            f"[bold]Cloud Remote Mount:[/bold] {cloud_mount_status} {cloud_mount}\n"
+            f"  Remote: {self.config.get('CRYPT_REMOTE', 'gcrypt')}:\n"
+            f"  Capacity: {cloud_quota_line[:40]}\n"
+        )
+        self.query_one("#storage-info", Static).update(storage_text)
+
+        # Services
+        units = [
+            ("rclone-mount.service", "Rclone FUSE Mount"),
+            ("mergerfs-mount.service", "MergerFS Tiered Mount"),
+            ("tier-sync.timer", "Tier Sync Periodic Timer"),
+            ("immediate-sync.service", "Immediate Sync Watcher"),
+            ("quota-monitor.timer", "Quota Monitor Timer"),
+            ("watchdog.service", "Mount Watchdog Daemon"),
+        ]
+        services_table = Table(box=None, padding=(0, 1), show_header=False)
+        services_table.add_column("Unit", style="bold")
+        services_table.add_column("Status")
+        for unit, desc in units:
+            services_table.add_row(desc, get_service_status(unit))
+
+        self.query_one("#services-info", Static).update(
+            Panel(services_table, title="[bold cyan]PIPELINE SERVICES[/bold cyan]", border_style="none")
+        )
+
+    def action_refresh_all(self) -> None:
+        self.refresh_metrics()
+        self.query_one("#activity-log", RichLog).write("[dim]Metrics refreshed.[/dim]")
+
+    def action_trigger_sync(self) -> None:
+        log_widget = self.query_one("#activity-log", RichLog)
+        log_widget.write("[bold yellow][HOTKEY 'F'][/bold yellow] Triggering manual tier-sync demotion pass...")
+        res = subprocess.run(["systemctl", "--user", "start", "tier-sync.service"])
+        if res.returncode == 0:
+            log_widget.write("[bold green]tier-sync.service started successfully.[/bold green]")
+        else:
+            log_widget.write("[bold red]Failed to start tier-sync.service.[/bold red]")
+        self.refresh_metrics()
+
+    def action_trigger_filer(self) -> None:
+        log_widget = self.query_one("#activity-log", RichLog)
+        log_widget.write("[bold yellow][HOTKEY 'S'][/bold yellow] Running Smart Filer pass...")
+        filer_bin = os.path.expanduser("~/.local/bin/smart-filer.sh")
+        if os.path.exists(filer_bin):
+            subprocess.Popen(["bash", filer_bin], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            log_widget.write("[bold green]Smart Filer pass launched in background.[/bold green]")
+        else:
+            log_widget.write("[bold red]smart-filer.sh not found in ~/.local/bin.[/bold red]")
+
+    def action_trigger_panic(self) -> None:
+        log_widget = self.query_one("#activity-log", RichLog)
+        log_widget.write("[bold red][HOTKEY 'P'][/bold red] Initiating Emergency Panic LRU Eviction...")
+        sync_bin = os.path.expanduser("~/.local/bin/tier-sync.sh")
+        if os.path.exists(sync_bin):
+            env = os.environ.copy()
+            env["PANIC_THRESHOLD"] = "0"
+            subprocess.Popen(["bash", sync_bin], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            log_widget.write("[bold green]Panic eviction triggered (PANIC_THRESHOLD=0).[/bold green]")
+        else:
+            log_widget.write("[bold red]tier-sync.sh not found in ~/.local/bin.[/bold red]")
+
+
+if __name__ == "__main__":
+    app = ETSMonitor()
+    app.run()

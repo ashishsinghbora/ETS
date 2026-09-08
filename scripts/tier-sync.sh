@@ -2,6 +2,14 @@
 set -euo pipefail
 export PATH="$HOME/.local/bin:${PATH}"
 
+# Concurrency protection: prevent overlapping timer and manual runs
+LOCK_FILE="/tmp/tier-sync-${USER:-user}.lock"
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] tier-sync is already running. Exiting to avoid concurrent race."
+    exit 0
+fi
+
 # Preserve caller environment overrides
 ENV_SYNC_MIN_AGE="${SYNC_MIN_AGE:-}"
 ENV_PANIC_THRESHOLD="${PANIC_THRESHOLD:-}"
@@ -23,13 +31,23 @@ CHECKERS="${SYNC_CHECKERS:-2}"
 RC_ADDR="${RCLONE_RC_ADDR:-127.0.0.1:5572}"
 PANIC_THRESHOLD="${ENV_PANIC_THRESHOLD:-${PANIC_THRESHOLD:-80}}"
 PANIC_TARGET="${ENV_PANIC_TARGET:-${PANIC_TARGET:-60}}"
+LOG_TO_FILE="${LOG_TO_FILE:-false}"
+LOG_FILE="${LOG_FILE:-$HOME/.config/encrypted-tiered-storage/storage.log}"
 
 DRY_RUN=false
 if [ "${1:-}" = "--dry-run" ] || [ "$ENV_DRY_RUN" = "true" ]; then
     DRY_RUN=true
 fi
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+log() {
+    local msg
+    msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+    echo "$msg"
+    if [ "$LOG_TO_FILE" = "true" ] && [ -n "$LOG_FILE" ]; then
+        mkdir -p "$(dirname "$LOG_FILE")"
+        echo "$msg" >>"$LOG_FILE"
+    fi
+}
 
 if [ ! -d "$LOCAL_CACHE" ]; then
     log "ERROR: Local cache directory $LOCAL_CACHE does not exist." >&2
@@ -46,7 +64,7 @@ get_cache_usage() {
 current_usage="$(get_cache_usage)"
 if [ "$current_usage" -ge "$PANIC_THRESHOLD" ]; then
     log "[PANIC] Local cache filesystem usage ($current_usage%) >= panic threshold ($PANIC_THRESHOLD%). Starting LRU eviction..."
-    
+
     # Sort files in LOCAL_CACHE by atime (oldest first: %A@)
     find "$LOCAL_CACHE" -mindepth 1 -type f -printf '%A@ %p\0' 2>/dev/null | sort -z -n | while IFS= read -r -d '' entry; do
         curr="$(get_cache_usage)"
@@ -54,16 +72,16 @@ if [ "$current_usage" -ge "$PANIC_THRESHOLD" ]; then
             log "[PANIC] Local cache usage dropped to $curr% (target <= $PANIC_TARGET%). Panic eviction complete."
             break
         fi
-        
+
         filepath="${entry#* }"
         [ -f "$filepath" ] || continue
-        relpath="${filepath#$LOCAL_CACHE/}"
+        relpath="${filepath#"$LOCAL_CACHE"/}"
 
         # Smart Filer hook if enabled
         if [ "${SMART_FILER_ENABLED:-false}" = "true" ] && [ -x "$HOME/.local/bin/smart-filer.sh" ]; then
             filepath="$("$HOME/.local/bin/smart-filer.sh" "$filepath" 2>/dev/null || echo "$filepath")"
             [ -f "$filepath" ] || continue
-            relpath="${filepath#$LOCAL_CACHE/}"
+            relpath="${filepath#"$LOCAL_CACHE"/}"
         fi
 
         log "[PANIC] Evicting LRU file: $relpath (cache usage: $curr%, target <= $PANIC_TARGET%)"

@@ -58,5 +58,5 @@ LOCAL_LINE="Local Cache:    $LOCAL_USED / ${LOCAL_DISK_INFO:-Local Disk}"
 
 # 3. Write human-readable quota file atomically
 TMP_QUOTA="${QUOTA_FILE}.tmp.$$"
-printf "%s\n%s\nLast updated:   %s\n" "$CLOUD_LINE" "$LOCAL_LINE" "$(date)" > "$TMP_QUOTA"
+printf "%s\n%s\nLast updated:   %s\n" "$CLOUD_LINE" "$LOCAL_LINE" "$(date)" >"$TMP_QUOTA"
 mv "$TMP_QUOTA" "$QUOTA_FILE"

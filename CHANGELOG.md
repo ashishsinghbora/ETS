@@ -2,6 +2,24 @@
 
 All notable changes to **Encrypted Tiered Storage** will be documented in this file.
 
+## [2.0.0] - 2026-09-08
+
+### Added
+- **Mount Watchdog Daemon (`watchdog.sh` & `watchdog.service`)**: Automated mount health monitoring daemon performing timed I/O checks; automatically triggers lazy FUSE unmount (`fusermount -uz`), service restart, and Telegram recovery notifications upon mount hangs.
+- **Interactive TUI Setup Wizard (`scripts/ets-setup`)**: Full Textual-based terminal wizard with rclone remote auto-detection, path builders, input validation, and direct installation execution.
+- **Live Terminal Monitor Dashboard (`scripts/ets-monitor`)**: Textual-powered live dashboard featuring storage capacity gauges, systemd service status grid, log stream, and interactive hotkeys (`F` full sync, `S` smart filer, `P` panic eviction).
+- **Multi-Cloud Union Pooling Guide (`docs/MULTI-CLOUD.md`)**: Complete architectural guide and configuration templates for aggregating multiple cloud providers (Google Drive, OneDrive, B2, S3) into a single virtual encrypted pool via rclone `union`.
+- **CI / CD Automation (`.github/workflows/ci.yml`)**: Automated GitHub Actions workflow testing shellcheck, shfmt, Python compilation, and dry-run setup input validation.
+- **Contribution Guidelines (`CONTRIBUTING.md`)**: Comprehensive documentation covering local dummy testing, bash/Python coding standards, and PR workflows.
+
+### Improved & Hardened
+- **Alert Rate Limiting & Debouncing (`scripts/telegram_alert.py`)**: Added duplicate alert suppression within 60s and rate-limiting (>5 alerts/min) to eliminate runaway alert cascades.
+- **Concurrency Locking (`scripts/tier-sync.sh`)**: Added `flock` non-blocking file locking on `/tmp/tier-sync-${USER}.lock` to prevent overlapping runs.
+- **Graceful Polling Fallback (`scripts/immediate-sync.sh`)**: Added automatic fallback to 30s polling when `inotifywait` is unavailable.
+- **Smart Filer Race Condition Safety (`scripts/smart-filer.sh`)**: Fixed git archive race by inspecting deep file modification times (`find -mmin -60`).
+- **Setup & Secret Hygiene (`setup.sh`)**: Added OS validation (Linux-only check), CLI flags (`--latest`, `--dry-run`), strict input validation for durations and panic thresholds, and `chmod 600` secret permissions.
+- **Codebase Quality**: 100% clean ShellCheck analysis and standardized `shfmt -i 4` formatting across all shell scripts.
+
 ## [1.1.0] - 2026-09-08
 
 ### Added

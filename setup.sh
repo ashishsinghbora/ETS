@@ -16,10 +16,48 @@ CYAN="\033[0;36m"
 BOLD="\033[1m"
 NC="\033[0m"
 
-info()    { echo -e "${CYAN}[INFO]${NC} $*"; }
+info() { echo -e "${CYAN}[INFO]${NC} $*"; }
 success() { echo -e "${GREEN}[OK]${NC} $*"; }
-warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
-error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+error() {
+    echo -e "${RED}[ERROR]${NC} $*" >&2
+    exit 1
+}
+
+# Parse command line flags
+FETCH_LATEST_MERGERFS=false
+DRY_RUN=false
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Options:
+    --latest        Fetch and install the latest mergerfs release from GitHub
+    --dry-run       Validate environment and configuration without changing files
+    -h, --help      Show this help message and exit
+EOF
+    exit 0
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+    --latest)
+        FETCH_LATEST_MERGERFS=true
+        shift
+        ;;
+    --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+    -h | --help)
+        usage
+        ;;
+    *)
+        error "Unknown argument: $1 (run with --help for usage)"
+        ;;
+    esac
+done
 
 echo -e "${BOLD}${BLUE}"
 echo "============================================================"
@@ -28,6 +66,10 @@ echo "============================================================"
 echo -e "${NC}"
 
 # 1. Environment & Architecture Detection
+if [ "$(uname -s)" != "Linux" ]; then
+    error "Encrypted Tiered Storage relies on Linux FUSE (mergerfs) and systemd --user. $(uname -s) is not supported."
+fi
+
 ARCH="$(uname -m)"
 info "Detected architecture: $ARCH"
 
@@ -37,21 +79,51 @@ if [ -f /etc/os-release ]; then
     info "Detected OS: ${PRETTY_NAME:-$ID}"
 fi
 
+# Preserve caller environment overrides
+ENV_CLOUD_REMOTE="${CLOUD_REMOTE:-}"
+ENV_CLOUD_REMOTE_FOLDER="${CLOUD_REMOTE_FOLDER:-}"
+ENV_CRYPT_REMOTE="${CRYPT_REMOTE:-}"
+ENV_STORAGE_BASE_DIR="${STORAGE_BASE_DIR:-}"
+ENV_LOCAL_CACHE_DIR="${LOCAL_CACHE_DIR:-}"
+ENV_CLOUD_REMOTE_MOUNT="${CLOUD_REMOTE_MOUNT:-}"
+ENV_TIERED_MOUNT="${TIERED_MOUNT:-}"
+ENV_SYNC_MIN_AGE="${SYNC_MIN_AGE:-}"
+ENV_SYNC_INTERVAL="${SYNC_INTERVAL:-}"
+ENV_SYNC_BWLIMIT="${SYNC_BWLIMIT:-}"
+ENV_PANIC_THRESHOLD="${PANIC_THRESHOLD:-}"
+ENV_PANIC_TARGET="${PANIC_TARGET:-}"
+
 # 2. Load Configuration
 if [ -f "$CONFIG_FILE" ]; then
     info "Loading configuration from ${CONFIG_FILE}..."
+    chmod 600 "$CONFIG_FILE"
     # shellcheck disable=SC1090
     source "$CONFIG_FILE"
 else
     warn "config.env not found. Creating from config.env.example..."
     if [ -f "${SCRIPT_DIR}/config.env.example" ]; then
         cp "${SCRIPT_DIR}/config.env.example" "$CONFIG_FILE"
+        chmod 600 "$CONFIG_FILE"
         # shellcheck disable=SC1090
         source "$CONFIG_FILE"
     else
         error "config.env.example is missing."
     fi
 fi
+
+# Re-apply caller environment overrides if provided
+[ -n "$ENV_CLOUD_REMOTE" ] && CLOUD_REMOTE="$ENV_CLOUD_REMOTE"
+[ -n "$ENV_CLOUD_REMOTE_FOLDER" ] && CLOUD_REMOTE_FOLDER="$ENV_CLOUD_REMOTE_FOLDER"
+[ -n "$ENV_CRYPT_REMOTE" ] && CRYPT_REMOTE="$ENV_CRYPT_REMOTE"
+[ -n "$ENV_STORAGE_BASE_DIR" ] && STORAGE_BASE_DIR="$ENV_STORAGE_BASE_DIR"
+[ -n "$ENV_LOCAL_CACHE_DIR" ] && LOCAL_CACHE_DIR="$ENV_LOCAL_CACHE_DIR"
+[ -n "$ENV_CLOUD_REMOTE_MOUNT" ] && CLOUD_REMOTE_MOUNT="$ENV_CLOUD_REMOTE_MOUNT"
+[ -n "$ENV_TIERED_MOUNT" ] && TIERED_MOUNT="$ENV_TIERED_MOUNT"
+[ -n "$ENV_SYNC_MIN_AGE" ] && SYNC_MIN_AGE="$ENV_SYNC_MIN_AGE"
+[ -n "$ENV_SYNC_INTERVAL" ] && SYNC_INTERVAL="$ENV_SYNC_INTERVAL"
+[ -n "$ENV_SYNC_BWLIMIT" ] && SYNC_BWLIMIT="$ENV_SYNC_BWLIMIT"
+[ -n "$ENV_PANIC_THRESHOLD" ] && PANIC_THRESHOLD="$ENV_PANIC_THRESHOLD"
+[ -n "$ENV_PANIC_TARGET" ] && PANIC_TARGET="$ENV_PANIC_TARGET"
 
 # Set defaults
 CLOUD_REMOTE="${CLOUD_REMOTE:-gdrive}"
@@ -71,6 +143,42 @@ PANIC_THRESHOLD="${PANIC_THRESHOLD:-80}"
 PANIC_TARGET="${PANIC_TARGET:-60}"
 SMART_FILER_ENABLED="${SMART_FILER_ENABLED:-false}"
 TELEGRAM_ALERTS_ENABLED="${TELEGRAM_ALERTS_ENABLED:-false}"
+MERGERFS_VERSION="${MERGERFS_VERSION:-2.42.0}"
+
+# Input validation
+DURATION_REGEX='^(([0-9]+(ms|s|m|h|d|w|M|y))+|0|off)$'
+if ! [[ "$SYNC_MIN_AGE" =~ $DURATION_REGEX ]]; then
+    error "Invalid SYNC_MIN_AGE format: '$SYNC_MIN_AGE'. Expected format like 15m, 1h, 0, or off."
+fi
+
+if ! [[ "$SYNC_INTERVAL" =~ $DURATION_REGEX ]]; then
+    error "Invalid SYNC_INTERVAL format: '$SYNC_INTERVAL'. Expected format like 20m, 1h, 0, or off."
+fi
+
+if ! [[ "$PANIC_THRESHOLD" =~ ^[0-9]+$ ]] || ! [[ "$PANIC_TARGET" =~ ^[0-9]+$ ]]; then
+    error "PANIC_THRESHOLD ('$PANIC_THRESHOLD') and PANIC_TARGET ('$PANIC_TARGET') must be integers."
+fi
+
+if [ "$PANIC_TARGET" -ge "$PANIC_THRESHOLD" ] || [ "$PANIC_THRESHOLD" -gt 100 ] || [ "$PANIC_TARGET" -lt 0 ]; then
+    error "Invalid panic thresholds. Must satisfy: 0 <= PANIC_TARGET ($PANIC_TARGET) < PANIC_THRESHOLD ($PANIC_THRESHOLD) <= 100."
+fi
+
+if [ "$DRY_RUN" = true ]; then
+    info "Dry run requested. Validated configuration:"
+    echo "  CLOUD_REMOTE:        ${CLOUD_REMOTE}"
+    echo "  CLOUD_REMOTE_FOLDER: ${CLOUD_REMOTE_FOLDER}"
+    echo "  CRYPT_REMOTE:        ${CRYPT_REMOTE}"
+    echo "  STORAGE_BASE_DIR:    ${STORAGE_BASE_DIR}"
+    echo "  LOCAL_CACHE_DIR:     ${LOCAL_CACHE_DIR}"
+    echo "  CLOUD_REMOTE_MOUNT:  ${CLOUD_REMOTE_MOUNT}"
+    echo "  TIERED_MOUNT:        ${TIERED_MOUNT}"
+    echo "  SYNC_MIN_AGE:        ${SYNC_MIN_AGE}"
+    echo "  SYNC_INTERVAL:       ${SYNC_INTERVAL}"
+    echo "  PANIC_THRESHOLD:     ${PANIC_THRESHOLD}%"
+    echo "  PANIC_TARGET:        ${PANIC_TARGET}%"
+    success "Dry run validation completed successfully."
+    exit 0
+fi
 
 # Ensure directories exist
 mkdir -p "$HOME/.local/bin" "$HOME/.config/encrypted-tiered-storage" "$HOME/.config/systemd/user"
@@ -86,16 +194,27 @@ fi
 success "rclone is available: $(rclone version | head -n1)"
 
 info "Checking mergerfs..."
+if [ "$FETCH_LATEST_MERGERFS" = true ]; then
+    info "Querying latest mergerfs version from GitHub..."
+    LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/trapexit/mergerfs/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || true)
+    if [ -n "$LATEST_TAG" ]; then
+        MERGERFS_VERSION="$LATEST_TAG"
+        info "Latest mergerfs version found: $MERGERFS_VERSION"
+    else
+        warn "Could not determine latest mergerfs version; defaulting to $MERGERFS_VERSION"
+    fi
+fi
+
 if ! command -v mergerfs &>/dev/null; then
-    info "mergerfs not found. Installing static prebuilt binary for $ARCH..."
-    MFS_TAG="2.42.0"
+    info "mergerfs not found. Installing static prebuilt binary ($MERGERFS_VERSION) for $ARCH..."
+    MFS_TAG="$MERGERFS_VERSION"
     case "$ARCH" in
-        x86_64)        MFS_ARCH="linux_amd64" ;;
-        aarch64|arm64) MFS_ARCH="linux_arm64" ;;
-        armv7l|armhf)  MFS_ARCH="linux_armhf" ;;
-        *) error "Unsupported architecture for prebuilt mergerfs: $ARCH" ;;
+    x86_64) MFS_ARCH="linux_amd64" ;;
+    aarch64 | arm64) MFS_ARCH="linux_arm64" ;;
+    armv7l | armhf) MFS_ARCH="linux_armhf" ;;
+    *) error "Unsupported architecture for prebuilt mergerfs: $ARCH" ;;
     esac
-    
+
     TMP_DIR="$(mktemp -d)"
     TAR_URL="https://github.com/trapexit/mergerfs/releases/download/${MFS_TAG}/mergerfs-${MFS_TAG}-static-${MFS_ARCH}.tar.gz"
     info "Downloading $TAR_URL..."
@@ -112,21 +231,22 @@ if ! command -v inotifywait &>/dev/null; then
     warn "inotifywait not found. Attempting package manager installation..."
     OS_FAMILY="${ID:-} ${ID_LIKE:-}"
     case "$OS_FAMILY" in
-        *debian*|*ubuntu*|*raspbian*)
-            sudo apt-get update -y && sudo apt-get install -y inotify-tools || true
-            ;;
-        *arch*|*manjaro*)
-            sudo pacman -S --noconfirm inotify-tools || true
-            ;;
-        *fedora*|*rhel*|*centos*)
-            sudo dnf install -y inotify-tools || true
-            ;;
-        *alpine*)
-            sudo apk add inotify-tools || true
-            ;;
+    *debian* | *ubuntu* | *raspbian*)
+        sudo apt-get update -y || true
+        sudo apt-get install -y inotify-tools || true
+        ;;
+    *arch* | *manjaro*)
+        sudo pacman -S --noconfirm inotify-tools || true
+        ;;
+    *fedora* | *rhel* | *centos*)
+        sudo dnf install -y inotify-tools || true
+        ;;
+    *alpine*)
+        sudo apk add inotify-tools || true
+        ;;
     esac
     if ! command -v inotifywait &>/dev/null; then
-        warn "inotify-tools could not be installed automatically. Immediate sync will degrade gracefully until installed."
+        warn "inotify-tools could not be installed automatically. Immediate sync will fall back to polling."
     else
         success "inotify-tools installed successfully."
     fi
@@ -139,18 +259,19 @@ if ! command -v exiftool &>/dev/null; then
     warn "exiftool not found. Attempting package manager installation..."
     OS_FAMILY="${ID:-} ${ID_LIKE:-}"
     case "$OS_FAMILY" in
-        *debian*|*ubuntu*|*raspbian*)
-            sudo apt-get update -y && sudo apt-get install -y libimage-exiftool-perl || true
-            ;;
-        *arch*|*manjaro*)
-            sudo pacman -S --noconfirm perl-image-exiftool || true
-            ;;
-        *fedora*|*rhel*|*centos*)
-            sudo dnf install -y perl-Image-ExifTool || true
-            ;;
-        *alpine*)
-            sudo apk add exiftool || true
-            ;;
+    *debian* | *ubuntu* | *raspbian*)
+        sudo apt-get update -y || true
+        sudo apt-get install -y libimage-exiftool-perl || true
+        ;;
+    *arch* | *manjaro*)
+        sudo pacman -S --noconfirm perl-image-exiftool || true
+        ;;
+    *fedora* | *rhel* | *centos*)
+        sudo dnf install -y perl-Image-ExifTool || true
+        ;;
+    *alpine*)
+        sudo apk add exiftool || true
+        ;;
     esac
     if ! command -v exiftool &>/dev/null; then
         warn "exiftool is not installed. Smart Filer will fall back to file mtime for photo dates."
@@ -185,7 +306,11 @@ if [ -z "${CRYPT_PASSWORD:-}" ]; then
 fi
 
 info "Configuring crypt remote ${CRYPT_REMOTE}: backed by ${CLOUD_REMOTE}:${CLOUD_REMOTE_FOLDER}..."
-rclone config create "$CRYPT_REMOTE" crypt     remote "${CLOUD_REMOTE}:${CLOUD_REMOTE_FOLDER}"     filename_encryption standard     directory_name_encryption true     password "$CRYPT_PASSWORD" >/dev/null
+rclone config create "$CRYPT_REMOTE" crypt \
+    remote "${CLOUD_REMOTE}:${CLOUD_REMOTE_FOLDER}" \
+    filename_encryption standard \
+    directory_name_encryption true \
+    password "$CRYPT_PASSWORD" >/dev/null
 
 rclone config password "$CRYPT_REMOTE" password "$CRYPT_PASSWORD" >/dev/null
 success "Crypt remote ${CRYPT_REMOTE}: configured successfully."
@@ -208,17 +333,21 @@ IMMEDIATE_SCRIPT="$HOME/.local/bin/immediate-sync.sh"
 QUOTA_SCRIPT="$HOME/.local/bin/quota-monitor.sh"
 SMART_FILER_SCRIPT="$HOME/.local/bin/smart-filer.sh"
 DOCTOR_SCRIPT="$HOME/.local/bin/doctor.sh"
+WATCHDOG_SCRIPT="$HOME/.local/bin/watchdog.sh"
 
 cp "${SCRIPT_DIR}/scripts/tier-sync.sh" "$SYNC_SCRIPT"
 cp "${SCRIPT_DIR}/scripts/immediate-sync.sh" "$IMMEDIATE_SCRIPT"
 cp "${SCRIPT_DIR}/scripts/quota-monitor.sh" "$QUOTA_SCRIPT"
 cp "${SCRIPT_DIR}/scripts/smart-filer.sh" "$SMART_FILER_SCRIPT"
 cp "${SCRIPT_DIR}/scripts/doctor.sh" "$DOCTOR_SCRIPT"
+cp "${SCRIPT_DIR}/scripts/watchdog.sh" "$WATCHDOG_SCRIPT"
 cp "${SCRIPT_DIR}/scripts/telegram_alert.py" "$ALERT_SCRIPT"
-chmod +x "$SYNC_SCRIPT" "$IMMEDIATE_SCRIPT" "$QUOTA_SCRIPT" "$SMART_FILER_SCRIPT" "$DOCTOR_SCRIPT" "$ALERT_SCRIPT"
+cp "${SCRIPT_DIR}/scripts/ets-setup" "$HOME/.local/bin/ets-setup"
+cp "${SCRIPT_DIR}/scripts/ets-monitor" "$HOME/.local/bin/ets-monitor"
+chmod +x "$SYNC_SCRIPT" "$IMMEDIATE_SCRIPT" "$QUOTA_SCRIPT" "$SMART_FILER_SCRIPT" "$DOCTOR_SCRIPT" "$WATCHDOG_SCRIPT" "$ALERT_SCRIPT" "$HOME/.local/bin/ets-setup" "$HOME/.local/bin/ets-monitor"
 
 # Save persistent storage config
-cat << EOF_ENV > "$HOME/.config/encrypted-tiered-storage/storage.env"
+cat <<EOF_ENV >"$HOME/.config/encrypted-tiered-storage/storage.env"
 LOCAL_CACHE_DIR="${LOCAL_CACHE_DIR}"
 CLOUD_REMOTE_MOUNT="${CLOUD_REMOTE_MOUNT}"
 TIERED_MOUNT="${TIERED_MOUNT}"
@@ -232,9 +361,10 @@ PANIC_THRESHOLD="${PANIC_THRESHOLD}"
 PANIC_TARGET="${PANIC_TARGET}"
 SMART_FILER_ENABLED="${SMART_FILER_ENABLED}"
 EOF_ENV
+chmod 600 "$HOME/.config/encrypted-tiered-storage/storage.env"
 
 # Save Telegram configuration
-cat << EOF_TEL > "$HOME/.config/encrypted-tiered-storage/telegram.env"
+cat <<EOF_TEL >"$HOME/.config/encrypted-tiered-storage/telegram.env"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 EOF_TEL
@@ -246,7 +376,20 @@ info "Deploying systemd user units..."
 render_template() {
     local src="$1"
     local dst="$2"
-    sed -e "s|{{RCLONE_BIN}}|${RCLONE_BIN}|g"         -e "s|{{MERGERFS_BIN}}|${MERGERFS_BIN}|g"         -e "s|{{CRYPT_REMOTE}}|${CRYPT_REMOTE}|g"         -e "s|{{CLOUD_REMOTE_MOUNT}}|${CLOUD_REMOTE_MOUNT}|g"         -e "s|{{LOCAL_CACHE_DIR}}|${LOCAL_CACHE_DIR}|g"         -e "s|{{TIERED_MOUNT}}|${TIERED_MOUNT}|g"         -e "s|{{SYNC_SCRIPT}}|${SYNC_SCRIPT}|g"         -e "s|{{IMMEDIATE_SCRIPT}}|${IMMEDIATE_SCRIPT}|g"         -e "s|{{QUOTA_SCRIPT}}|${QUOTA_SCRIPT}|g"         -e "s|{{ALERT_SCRIPT}}|${ALERT_SCRIPT}|g"         -e "s|{{SYNC_INTERVAL}}|${SYNC_INTERVAL}|g"         -e "s|{{RCLONE_RC_ADDR}}|${RCLONE_RC_ADDR}|g"         "$src" > "$dst"
+    sed -e "s|{{RCLONE_BIN}}|${RCLONE_BIN}|g" \
+        -e "s|{{MERGERFS_BIN}}|${MERGERFS_BIN}|g" \
+        -e "s|{{CRYPT_REMOTE}}|${CRYPT_REMOTE}|g" \
+        -e "s|{{CLOUD_REMOTE_MOUNT}}|${CLOUD_REMOTE_MOUNT}|g" \
+        -e "s|{{LOCAL_CACHE_DIR}}|${LOCAL_CACHE_DIR}|g" \
+        -e "s|{{TIERED_MOUNT}}|${TIERED_MOUNT}|g" \
+        -e "s|{{SYNC_SCRIPT}}|${SYNC_SCRIPT}|g" \
+        -e "s|{{IMMEDIATE_SCRIPT}}|${IMMEDIATE_SCRIPT}|g" \
+        -e "s|{{QUOTA_SCRIPT}}|${QUOTA_SCRIPT}|g" \
+        -e "s|{{WATCHDOG_SCRIPT}}|${WATCHDOG_SCRIPT}|g" \
+        -e "s|{{ALERT_SCRIPT}}|${ALERT_SCRIPT}|g" \
+        -e "s|{{SYNC_INTERVAL}}|${SYNC_INTERVAL}|g" \
+        -e "s|{{RCLONE_RC_ADDR}}|${RCLONE_RC_ADDR}|g" \
+        "$src" >"$dst"
 }
 
 render_template "${SCRIPT_DIR}/systemd/rclone-mount.service.template" "$HOME/.config/systemd/user/rclone-mount.service"
@@ -256,11 +399,12 @@ render_template "${SCRIPT_DIR}/systemd/tier-sync.timer.template" "$HOME/.config/
 render_template "${SCRIPT_DIR}/systemd/immediate-sync.service.template" "$HOME/.config/systemd/user/immediate-sync.service"
 render_template "${SCRIPT_DIR}/systemd/quota-monitor.service.template" "$HOME/.config/systemd/user/quota-monitor.service"
 render_template "${SCRIPT_DIR}/systemd/quota-monitor.timer.template" "$HOME/.config/systemd/user/quota-monitor.timer"
+render_template "${SCRIPT_DIR}/systemd/watchdog.service.template" "$HOME/.config/systemd/user/watchdog.service"
 render_template "${SCRIPT_DIR}/systemd/telegram-alert@.service.template" "$HOME/.config/systemd/user/telegram-alert@.service"
 
 # Reload and enable services
 systemctl --user daemon-reload
-systemctl --user enable --now rclone-mount.service mergerfs-mount.service tier-sync.timer quota-monitor.timer
+systemctl --user enable --now rclone-mount.service mergerfs-mount.service tier-sync.timer quota-monitor.timer watchdog.service
 
 if command -v inotifywait &>/dev/null; then
     systemctl --user enable --now immediate-sync.service
@@ -297,3 +441,4 @@ echo -e "\n${GREEN}${BOLD}Setup Completed Successfully! 🎉${NC}"
 echo -e "Unified Storage Mount: ${CYAN}${TIERED_MOUNT}${NC}"
 echo -e "Write your files directly to this directory."
 echo -e "Run ${BOLD}doctor.sh${NC} anytime to verify system health."
+echo -e "Run ${BOLD}ets-monitor${NC} for real-time dashboard and live controls."

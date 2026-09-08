@@ -13,8 +13,14 @@ BOLD="\033[1m"
 NC="\033[0m"
 
 pass() { echo -e "  [${GREEN}PASS${NC}] $*"; }
-fail() { echo -e "  [${RED}FAIL${NC}] $*"; FAILED=$((FAILED + 1)); }
-warn() { echo -e "  [${YELLOW}WARN${NC}] $*"; WARNINGS=$((WARNINGS + 1)); }
+fail() {
+    echo -e "  [${RED}FAIL${NC}] $*"
+    FAILED=$((FAILED + 1))
+}
+warn() {
+    echo -e "  [${YELLOW}WARN${NC}] $*"
+    WARNINGS=$((WARNINGS + 1))
+}
 
 FAILED=0
 WARNINGS=0
@@ -85,7 +91,7 @@ fi
 echo -e "\n${BOLD}3. Systemd User Units:${NC}"
 check_unit() {
     local unit="$1"
-    local type="${2:-service}"
+    # check type
     if systemctl --user is-active --quiet "$unit"; then
         pass "$unit is active and running"
     else
@@ -100,6 +106,7 @@ check_unit() {
 check_unit "rclone-mount.service"
 check_unit "mergerfs-mount.service"
 check_unit "immediate-sync.service"
+check_unit "watchdog.service"
 check_unit "tier-sync.timer" "timer"
 check_unit "quota-monitor.timer" "timer"
 

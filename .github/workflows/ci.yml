@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, feature/** ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint:
+    name: Lint & Format Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck & shfmt
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y shellcheck
+          # Install shfmt
+          SHFMT_VER="3.10.0"
+          curl -sSLo /usr/local/bin/shfmt "https://github.com/mvdan/sh/releases/download/v${SHFMT_VER}/shfmt_v${SHFMT_VER}_linux_amd64"
+          chmod +x /usr/local/bin/shfmt
+
+      - name: Run ShellCheck
+        run: |
+          shellcheck setup.sh test.sh uninstall.sh scripts/*.sh
+
+      - name: Run shfmt Check
+        run: |
+          shfmt -i 4 -d setup.sh test.sh uninstall.sh scripts/*.sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check Python Scripts Syntax
+        run: |
+          python3 -m py_compile scripts/telegram_alert.py
+          python3 -m py_compile scripts/ets-setup
+          python3 -m py_compile scripts/ets-monitor
+
+  test-dry-run:
+    name: Dry Run & Validation Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install rclone
+        run: |
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Configure Dummy rclone Remote
+        run: |
+          mkdir -p /tmp/dummy_cloud
+          rclone config create dummycloud alias remote /tmp/dummy_cloud
+
+      - name: Test setup.sh --dry-run
+        run: |
+          ./setup.sh --dry-run
+
+      - name: Test setup.sh input validation
+        run: |
+          # Test invalid panic target >= threshold
+          if PANIC_THRESHOLD=50 PANIC_TARGET=60 ./setup.sh --dry-run 2>/dev/null; then
+            echo "Expected failure on invalid panic thresholds but succeeded!"
+            exit 1
+          fi
+
+          # Test invalid duration format
+          if SYNC_MIN_AGE="invalid_age" ./setup.sh --dry-run 2>/dev/null; then
+            echo "Expected failure on invalid SYNC_MIN_AGE but succeeded!"
+            exit 1
+          fi
+
+          echo "Input validation tests passed successfully."

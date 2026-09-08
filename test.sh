@@ -7,13 +7,15 @@ export PATH="$HOME/.local/bin:${PATH}"
 
 RED="\033[0;31m"
 GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
 CYAN="\033[0;36m"
 BOLD="\033[1m"
 NC="\033[0m"
 
 pass() { echo -e "  [${GREEN}PASS${NC}] $*"; }
-fail() { echo -e "  [${RED}FAIL${NC}] $*" >&2; exit 1; }
+fail() {
+    echo -e "  [${RED}FAIL${NC}] $*" >&2
+    exit 1
+}
 info() { echo -e "\n${CYAN}${BOLD}[TEST $1]${NC} $2"; }
 
 CONFIG_FILE="$HOME/.config/encrypted-tiered-storage/storage.env"
@@ -24,10 +26,26 @@ fi
 
 LOCAL_CACHE="${LOCAL_CACHE_DIR:-$HOME/mnt/local-cache}"
 TIERED_MOUNT="${TIERED_MOUNT:-$HOME/mnt/cloud-tiered}"
+CRYPT_REMOTE_NAME="${CRYPT_REMOTE:-gcrypt}"
 SYNC_SCRIPT="$HOME/.local/bin/tier-sync.sh"
 QUOTA_SCRIPT="$HOME/.local/bin/quota-monitor.sh"
 SMART_FILER_SCRIPT="$HOME/.local/bin/smart-filer.sh"
 DOCTOR_SCRIPT="$HOME/.local/bin/doctor.sh"
+
+TEST_FILENAME="test_pipeline_$(date +%s).txt"
+IMM_TEST_NAME="imm_test_$(date +%s).txt"
+PANIC_FILE_PATTERN="panic_lru_test_*.txt"
+FAKE_GIT_PREFIX="fake_git_"
+
+cleanup() {
+    rm -f "${TIERED_MOUNT}/${TEST_FILENAME}" 2>/dev/null || true
+    rm -f "${TIERED_MOUNT}/.immediate_sync/${IMM_TEST_NAME}" 2>/dev/null || true
+    find "${TIERED_MOUNT}" -maxdepth 1 -name "$PANIC_FILE_PATTERN" -delete 2>/dev/null || true
+    find "${LOCAL_CACHE}" -maxdepth 1 -name "$PANIC_FILE_PATTERN" -delete 2>/dev/null || true
+    find "${LOCAL_CACHE}" -maxdepth 1 -name "${FAKE_GIT_PREFIX}*" -exec rm -rf {} + 2>/dev/null || true
+    rclone deletefile "${CRYPT_REMOTE_NAME}:${IMM_TEST_NAME}" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
 
 echo -e "${BOLD}${CYAN}============================================================${NC}"
 echo -e "${BOLD}${CYAN}    Running Encrypted Tiered Storage Verification Suite     ${NC}"
@@ -39,12 +57,11 @@ mountpoint -q "$TIERED_MOUNT" || fail "Tiered mount $TIERED_MOUNT is not mounted
 pass "Unified mount is active ($TIERED_MOUNT)"
 
 # 2. Instant Local Write
-TEST_FILENAME="test_pipeline_$(date +%s).txt"
 TEST_CONTENT="Automated pipeline test at $(date)"
 TEST_FILE="${TIERED_MOUNT}/${TEST_FILENAME}"
 
 info "2" "Testing instant local write through mergerfs..."
-echo "$TEST_CONTENT" > "$TEST_FILE"
+echo "$TEST_CONTENT" >"$TEST_FILE"
 if [ -f "${LOCAL_CACHE}/${TEST_FILENAME}" ]; then
     pass "File appeared instantly in fast local cache tier"
 else
@@ -78,9 +95,8 @@ pass "Test file cleaned up"
 # 6. Immediate Sync Bypass
 info "6" "Testing .immediate_sync bypass folder..."
 mkdir -p "${TIERED_MOUNT}/.immediate_sync"
-IMM_TEST_NAME="imm_test_$(date +%s).txt"
 IMM_TEST_FILE="${TIERED_MOUNT}/.immediate_sync/${IMM_TEST_NAME}"
-echo "Immediate bypass payload $(date)" > "$IMM_TEST_FILE"
+echo "Immediate bypass payload $(date)" >"$IMM_TEST_FILE"
 
 # Wait for inotifywatcher / process to offload
 MAX_WAIT=60
@@ -97,20 +113,19 @@ else
 fi
 
 # Clean up offloaded file from remote
-rclone delete "gcrypt:${IMM_TEST_NAME}" 2>/dev/null || true
+rclone deletefile "${CRYPT_REMOTE_NAME}:${IMM_TEST_NAME}" 2>/dev/null || true
 pass "Immediate sync test file cleaned up"
 
 # 7. Panic LRU Eviction Test
 info "7" "Testing panic-rule LRU eviction..."
 PANIC_FILE="${TIERED_MOUNT}/panic_lru_test_$(date +%s).txt"
-echo "Panic payload $(date)" > "$PANIC_FILE"
-PANIC_OUTPUT="$(PANIC_THRESHOLD=1 PANIC_TARGET=1 "$SYNC_SCRIPT" 2>&1 || true)"
+echo "Panic payload $(date)" >"$PANIC_FILE"
+PANIC_OUTPUT="$(PANIC_THRESHOLD=1 PANIC_TARGET=1 "$SYNC_SCRIPT" --dry-run 2>&1 || true)"
 if echo "$PANIC_OUTPUT" | grep -q "\[PANIC\]"; then
     pass "Panic rule triggered correctly and logged [PANIC]"
 else
     fail "Panic rule did not log [PANIC]: $PANIC_OUTPUT"
 fi
-# Clean up panic test file
 rm -f "$PANIC_FILE" 2>/dev/null || true
 pass "Panic rule eviction logic verified"
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=Watchdog Daemon for Encrypted Tiered Storage Mounts
+After=mergerfs-mount.service
+Requires=mergerfs-mount.service
+OnFailure=telegram-alert@%n.service
+
+[Service]
+Type=simple
+ExecStart={{WATCHDOG_SCRIPT}}
+ExecStopPost=/bin/sh -c 'if [ "$$SERVICE_RESULT" != "success" ]; then {{ALERT_SCRIPT}} "⚠️ %n stopped unexpectedly ($$SERVICE_RESULT)"; fi'
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=default.target

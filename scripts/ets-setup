@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+"""
+Encrypted Tiered Storage (ETS) - Interactive Setup & Configuration Wizard
+Built with Textual and Rich.
+"""
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+from textual import on
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.validation import Integer, Number
+from textual.widgets import (
+    Button,
+    Footer,
+    Header,
+    Input,
+    Label,
+    Rule,
+    Select,
+    Static,
+    Switch,
+)
+
+
+def get_rclone_remotes():
+    try:
+        out = subprocess.check_output(["rclone", "listremotes"], text=True, stderr=subprocess.DEVNULL)
+        remotes = [r.rstrip(":") for r in out.strip().splitlines() if r.strip()]
+        return remotes
+    except Exception:
+        return []
+
+
+class SetupWizard(App):
+    CSS = """
+    Screen {
+        background: $surface;
+    }
+    #form-container {
+        padding: 1 2;
+        height: auto;
+    }
+    .field-row {
+        height: auto;
+        margin-bottom: 1;
+    }
+    .field-label {
+        width: 28;
+        padding-top: 1;
+        color: $text-muted;
+        text-style: bold;
+    }
+    .field-input {
+        width: 1fr;
+    }
+    #buttons-bar {
+        height: 3;
+        margin-top: 1;
+        align: center middle;
+    }
+    Button {
+        margin: 0 1;
+    }
+    #status-log {
+        height: 4;
+        background: $panel;
+        color: $accent;
+        padding: 0 1;
+        border: solid $primary;
+        margin-top: 1;
+    }
+    """
+
+    TITLE = "Encrypted Tiered Storage (ETS) - Setup Wizard"
+    SUB_TITLE = "Configure unified encrypted storage pipeline"
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        remotes = get_rclone_remotes()
+        remote_options = [(r, r) for r in remotes] if remotes else [("gdrive", "gdrive")]
+
+        with VerticalScroll(id="form-container"):
+            yield Static("[bold cyan]Storage Tier Configuration[/bold cyan]")
+            yield Rule()
+
+            with Horizontal(classes="field-row"):
+                yield Label("Cloud Remote (rclone):", classes="field-label")
+                if remotes:
+                    yield Select(remote_options, value=remote_options[0][0], id="cloud_remote", classes="field-input")
+                else:
+                    yield Input(placeholder="e.g. gdrive", value="gdrive", id="cloud_remote", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Cloud Remote Folder:", classes="field-label")
+                yield Input(value="encrypted", id="cloud_folder", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Local Crypt Remote Name:", classes="field-label")
+                yield Input(value="gcrypt", id="crypt_remote", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Storage Base Directory:", classes="field-label")
+                default_base = os.path.expanduser("~/mnt")
+                yield Input(value=default_base, id="storage_base", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Local Cache Directory:", classes="field-label")
+                yield Input(value=os.path.join(default_base, "local-cache"), id="local_cache", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Cloud Mount Directory:", classes="field-label")
+                yield Input(value=os.path.join(default_base, "gcrypt-remote"), id="cloud_mount", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Tiered Mount Directory:", classes="field-label")
+                yield Input(value=os.path.join(default_base, "cloud-tiered"), id="tiered_mount", classes="field-input")
+
+            yield Static("\n[bold cyan]Sync & Eviction Policies[/bold cyan]")
+            yield Rule()
+
+            with Horizontal(classes="field-row"):
+                yield Label("Routine Sync Min Age:", classes="field-label")
+                yield Input(value="15m", id="sync_min_age", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Sync Interval:", classes="field-label")
+                yield Input(value="20m", id="sync_interval", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Sync Bandwidth Limit:", classes="field-label")
+                yield Input(value="5M", id="sync_bwlimit", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Panic Threshold (%):", classes="field-label")
+                yield Input(value="80", id="panic_threshold", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Panic Target (%):", classes="field-label")
+                yield Input(value="60", id="panic_target", classes="field-input")
+
+            yield Static("\n[bold cyan]Features & Notifications[/bold cyan]")
+            yield Rule()
+
+            with Horizontal(classes="field-row"):
+                yield Label("Enable Smart Filer:", classes="field-label")
+                yield Switch(value=False, id="smart_filer")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Telegram Bot Token:", classes="field-label")
+                yield Input(placeholder="Optional: 123456:ABC-DEF...", password=True, id="tg_token", classes="field-input")
+
+            with Horizontal(classes="field-row"):
+                yield Label("Telegram Chat ID:", classes="field-label")
+                yield Input(placeholder="Optional: 12345678", id="tg_chat", classes="field-input")
+
+            with Horizontal(id="buttons-bar"):
+                yield Button("Save config.env", variant="primary", id="btn_save")
+                yield Button("Save & Run setup.sh", variant="success", id="btn_save_run")
+                yield Button("Cancel", variant="error", id="btn_cancel")
+
+            yield Static("Ready to configure ETS.", id="status-log")
+
+        yield Footer()
+
+    def get_form_data(self):
+        cloud_remote_widget = self.query_one("#cloud_remote")
+        if isinstance(cloud_remote_widget, Select):
+            cloud_remote = cloud_remote_widget.value
+        else:
+            cloud_remote = cloud_remote_widget.value.strip()
+
+        return {
+            "CLOUD_REMOTE": cloud_remote,
+            "CLOUD_REMOTE_FOLDER": self.query_one("#cloud_folder", Input).value.strip(),
+            "CRYPT_REMOTE": self.query_one("#crypt_remote", Input).value.strip(),
+            "STORAGE_BASE_DIR": self.query_one("#storage_base", Input).value.strip(),
+            "LOCAL_CACHE_DIR": self.query_one("#local_cache", Input).value.strip(),
+            "CLOUD_REMOTE_MOUNT": self.query_one("#cloud_mount", Input).value.strip(),
+            "TIERED_MOUNT": self.query_one("#tiered_mount", Input).value.strip(),
+            "SYNC_MIN_AGE": self.query_one("#sync_min_age", Input).value.strip(),
+            "SYNC_INTERVAL": self.query_one("#sync_interval", Input).value.strip(),
+            "SYNC_BWLIMIT": self.query_one("#sync_bwlimit", Input).value.strip(),
+            "PANIC_THRESHOLD": self.query_one("#panic_threshold", Input).value.strip(),
+            "PANIC_TARGET": self.query_one("#panic_target", Input).value.strip(),
+            "SMART_FILER_ENABLED": "true" if self.query_one("#smart_filer", Switch).value else "false",
+            "TELEGRAM_BOT_TOKEN": self.query_one("#tg_token", Input).value.strip(),
+            "TELEGRAM_CHAT_ID": self.query_one("#tg_chat", Input).value.strip(),
+            "TELEGRAM_ALERTS_ENABLED": "true" if self.query_one("#tg_token", Input).value.strip() else "false",
+        }
+
+    def validate_data(self, data):
+        duration_regex = r"^(([0-9]+(ms|s|m|h|d|w|M|y))+|0|off)$"
+        if not re.match(duration_regex, data["SYNC_MIN_AGE"]):
+            return False, f"Invalid SYNC_MIN_AGE: {data['SYNC_MIN_AGE']}"
+        if not re.match(duration_regex, data["SYNC_INTERVAL"]):
+            return False, f"Invalid SYNC_INTERVAL: {data['SYNC_INTERVAL']}"
+
+        try:
+            pt = int(data["PANIC_THRESHOLD"])
+            tgt = int(data["PANIC_TARGET"])
+            if not (0 <= tgt < pt <= 100):
+                return False, f"Must satisfy: 0 <= Panic Target ({tgt}) < Panic Threshold ({pt}) <= 100"
+        except ValueError:
+            return False, "Panic thresholds must be integers."
+
+        return True, "Valid"
+
+    def write_config(self, data):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        config_path = os.path.join(repo_root, "config.env")
+        lines = [
+            "# ==============================================================================",
+            "# Encrypted Tiered Storage Configuration - Generated by ets-setup",
+            "# ==============================================================================",
+            f'CLOUD_REMOTE="{data["CLOUD_REMOTE"]}"',
+            f'CLOUD_REMOTE_FOLDER="{data["CLOUD_REMOTE_FOLDER"]}"',
+            f'CRYPT_REMOTE="{data["CRYPT_REMOTE"]}"',
+            f'STORAGE_BASE_DIR="{data["STORAGE_BASE_DIR"]}"',
+            f'LOCAL_CACHE_DIR="{data["LOCAL_CACHE_DIR"]}"',
+            f'CLOUD_REMOTE_MOUNT="{data["CLOUD_REMOTE_MOUNT"]}"',
+            f'TIERED_MOUNT="{data["TIERED_MOUNT"]}"',
+            f'SYNC_MIN_AGE="{data["SYNC_MIN_AGE"]}"',
+            f'SYNC_INTERVAL="{data["SYNC_INTERVAL"]}"',
+            f'SYNC_BWLIMIT="{data["SYNC_BWLIMIT"]}"',
+            'SYNC_TRANSFERS="2"',
+            'SYNC_CHECKERS="2"',
+            'RCLONE_RC_ADDR="127.0.0.1:5572"',
+            f'PANIC_THRESHOLD="{data["PANIC_THRESHOLD"]}"',
+            f'PANIC_TARGET="{data["PANIC_TARGET"]}"',
+            f'SMART_FILER_ENABLED="{data["SMART_FILER_ENABLED"]}"',
+            f'TELEGRAM_ALERTS_ENABLED="{data["TELEGRAM_ALERTS_ENABLED"]}"',
+            f'TELEGRAM_BOT_TOKEN="{data["TELEGRAM_BOT_TOKEN"]}"',
+            f'TELEGRAM_CHAT_ID="{data["TELEGRAM_CHAT_ID"]}"',
+            "",
+        ]
+        with open(config_path, "w") as f:
+            f.write("\n".join(lines))
+        os.chmod(config_path, 0o600)
+        return config_path
+
+    @on(Button.Pressed, "#btn_cancel")
+    def action_cancel(self):
+        self.exit(0)
+
+    @on(Button.Pressed, "#btn_save")
+    def action_save(self):
+        data = self.get_form_data()
+        valid, msg = self.validate_data(data)
+        status_widget = self.query_one("#status-log", Static)
+        if not valid:
+            status_widget.update(f"[bold red]Validation Error:[/bold red] {msg}")
+            return
+        path = self.write_config(data)
+        status_widget.update(f"[bold green]Success![/bold green] Configuration written to {path}")
+
+    @on(Button.Pressed, "#btn_save_run")
+    def action_save_run(self):
+        data = self.get_form_data()
+        valid, msg = self.validate_data(data)
+        status_widget = self.query_one("#status-log", Static)
+        if not valid:
+            status_widget.update(f"[bold red]Validation Error:[/bold red] {msg}")
+            return
+        path = self.write_config(data)
+        self.exit(10)
+
+
+if __name__ == "__main__":
+    app = SetupWizard()
+    ret = app.run()
+    if ret == 10:
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        setup_script = os.path.join(repo_root, "setup.sh")
+        print("\nExecuting setup.sh...\n")
+        os.execv(setup_script, [setup_script])
