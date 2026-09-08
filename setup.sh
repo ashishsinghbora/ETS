@@ -69,7 +69,7 @@ SYNC_CHECKERS="${SYNC_CHECKERS:-2}"
 RCLONE_RC_ADDR="${RCLONE_RC_ADDR:-127.0.0.1:5572}"
 PANIC_THRESHOLD="${PANIC_THRESHOLD:-80}"
 PANIC_TARGET="${PANIC_TARGET:-60}"
-
+SMART_FILER_ENABLED="${SMART_FILER_ENABLED:-false}"
 TELEGRAM_ALERTS_ENABLED="${TELEGRAM_ALERTS_ENABLED:-false}"
 
 # Ensure directories exist
@@ -90,7 +90,7 @@ if ! command -v mergerfs &>/dev/null; then
     info "mergerfs not found. Installing static prebuilt binary for $ARCH..."
     MFS_TAG="2.42.0"
     case "$ARCH" in
-        x86_64)  MFS_ARCH="linux_amd64" ;;
+        x86_64)        MFS_ARCH="linux_amd64" ;;
         aarch64|arm64) MFS_ARCH="linux_arm64" ;;
         armv7l|armhf)  MFS_ARCH="linux_armhf" ;;
         *) error "Unsupported architecture for prebuilt mergerfs: $ARCH" ;;
@@ -134,6 +134,32 @@ else
     success "inotifywait is available."
 fi
 
+info "Checking exiftool (for Smart Filer photo EXIF routing)..."
+if ! command -v exiftool &>/dev/null; then
+    warn "exiftool not found. Attempting package manager installation..."
+    OS_FAMILY="${ID:-} ${ID_LIKE:-}"
+    case "$OS_FAMILY" in
+        *debian*|*ubuntu*|*raspbian*)
+            sudo apt-get update -y && sudo apt-get install -y libimage-exiftool-perl || true
+            ;;
+        *arch*|*manjaro*)
+            sudo pacman -S --noconfirm perl-image-exiftool || true
+            ;;
+        *fedora*|*rhel*|*centos*)
+            sudo dnf install -y perl-Image-ExifTool || true
+            ;;
+        *alpine*)
+            sudo apk add exiftool || true
+            ;;
+    esac
+    if ! command -v exiftool &>/dev/null; then
+        warn "exiftool is not installed. Smart Filer will fall back to file mtime for photo dates."
+    else
+        success "exiftool installed successfully."
+    fi
+else
+    success "exiftool is available."
+fi
 
 # 4. Verify Cloud Remote
 info "Checking cloud remote ${CLOUD_REMOTE}:..."
@@ -165,13 +191,11 @@ rclone config password "$CRYPT_REMOTE" password "$CRYPT_PASSWORD" >/dev/null
 success "Crypt remote ${CRYPT_REMOTE}: configured successfully."
 
 if [ "$GENERATED_PASSWORD" = true ]; then
-    echo -e "
-${RED}${BOLD}============================================================${NC}"
+    echo -e "\n${RED}${BOLD}============================================================${NC}"
     echo -e "${YELLOW}${BOLD}⚠️  CRITICAL: BACK UP YOUR ENCRYPTION PASSWORD NOW!${NC}"
     echo -e "${BOLD}Password:${NC} ${GREEN}${CRYPT_PASSWORD}${NC}"
     echo -e "Losing this password means permanent loss of encrypted data."
-    echo -e "${RED}${BOLD}============================================================${NC}
-"
+    echo -e "${RED}${BOLD}============================================================${NC}\n"
 fi
 
 # 6. Install Scripts & Environment Configuration
@@ -181,20 +205,39 @@ MERGERFS_BIN="$(command -v mergerfs)"
 ALERT_SCRIPT="$HOME/.local/bin/telegram_alert.py"
 SYNC_SCRIPT="$HOME/.local/bin/tier-sync.sh"
 IMMEDIATE_SCRIPT="$HOME/.local/bin/immediate-sync.sh"
-
-cp "${SCRIPT_DIR}/scripts/immediate-sync.sh" "$IMMEDIATE_SCRIPT"
-chmod +x "$IMMEDIATE_SCRIPT"
-
+QUOTA_SCRIPT="$HOME/.local/bin/quota-monitor.sh"
+SMART_FILER_SCRIPT="$HOME/.local/bin/smart-filer.sh"
+DOCTOR_SCRIPT="$HOME/.local/bin/doctor.sh"
 
 cp "${SCRIPT_DIR}/scripts/tier-sync.sh" "$SYNC_SCRIPT"
+cp "${SCRIPT_DIR}/scripts/immediate-sync.sh" "$IMMEDIATE_SCRIPT"
+cp "${SCRIPT_DIR}/scripts/quota-monitor.sh" "$QUOTA_SCRIPT"
+cp "${SCRIPT_DIR}/scripts/smart-filer.sh" "$SMART_FILER_SCRIPT"
+cp "${SCRIPT_DIR}/scripts/doctor.sh" "$DOCTOR_SCRIPT"
 cp "${SCRIPT_DIR}/scripts/telegram_alert.py" "$ALERT_SCRIPT"
-chmod +x "$SYNC_SCRIPT" "$ALERT_SCRIPT"
+chmod +x "$SYNC_SCRIPT" "$IMMEDIATE_SCRIPT" "$QUOTA_SCRIPT" "$SMART_FILER_SCRIPT" "$DOCTOR_SCRIPT" "$ALERT_SCRIPT"
 
 # Save persistent storage config
-printf "LOCAL_CACHE_DIR=\"%s\"\nCRYPT_REMOTE=\"%s\"\nSYNC_MIN_AGE=\"%s\"\nSYNC_BWLIMIT=\"%s\"\nSYNC_TRANSFERS=\"%s\"\nSYNC_CHECKERS=\"%s\"\nRCLONE_RC_ADDR=\"%s\"\n"     "$LOCAL_CACHE_DIR" "$CRYPT_REMOTE" "$SYNC_MIN_AGE" "$SYNC_BWLIMIT" "$SYNC_TRANSFERS" "$SYNC_CHECKERS" "$RCLONE_RC_ADDR"     > "$HOME/.config/encrypted-tiered-storage/storage.env"
+cat << EOF_ENV > "$HOME/.config/encrypted-tiered-storage/storage.env"
+LOCAL_CACHE_DIR="${LOCAL_CACHE_DIR}"
+CLOUD_REMOTE_MOUNT="${CLOUD_REMOTE_MOUNT}"
+TIERED_MOUNT="${TIERED_MOUNT}"
+CRYPT_REMOTE="${CRYPT_REMOTE}"
+SYNC_MIN_AGE="${SYNC_MIN_AGE}"
+SYNC_BWLIMIT="${SYNC_BWLIMIT}"
+SYNC_TRANSFERS="${SYNC_TRANSFERS}"
+SYNC_CHECKERS="${SYNC_CHECKERS}"
+RCLONE_RC_ADDR="${RCLONE_RC_ADDR}"
+PANIC_THRESHOLD="${PANIC_THRESHOLD}"
+PANIC_TARGET="${PANIC_TARGET}"
+SMART_FILER_ENABLED="${SMART_FILER_ENABLED}"
+EOF_ENV
 
 # Save Telegram configuration
-printf "TELEGRAM_BOT_TOKEN=\"%s\"\nTELEGRAM_CHAT_ID=\"%s\"\n"     "${TELEGRAM_BOT_TOKEN:-}" "${TELEGRAM_CHAT_ID:-}"     > "$HOME/.config/encrypted-tiered-storage/telegram.env"
+cat << EOF_TEL > "$HOME/.config/encrypted-tiered-storage/telegram.env"
+TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+EOF_TEL
 chmod 600 "$HOME/.config/encrypted-tiered-storage/telegram.env"
 
 # 7. Render & Install Systemd User Units
@@ -203,30 +246,34 @@ info "Deploying systemd user units..."
 render_template() {
     local src="$1"
     local dst="$2"
-    sed -e "s|{{RCLONE_BIN}}|${RCLONE_BIN}|g"         -e "s|{{MERGERFS_BIN}}|${MERGERFS_BIN}|g"         -e "s|{{CRYPT_REMOTE}}|${CRYPT_REMOTE}|g"         -e "s|{{CLOUD_REMOTE_MOUNT}}|${CLOUD_REMOTE_MOUNT}|g"         -e "s|{{LOCAL_CACHE_DIR}}|${LOCAL_CACHE_DIR}|g"         -e "s|{{TIERED_MOUNT}}|${TIERED_MOUNT}|g"         -e "s|{{SYNC_SCRIPT}}|${SYNC_SCRIPT}|g"         -e "s|{{ALERT_SCRIPT}}|${ALERT_SCRIPT}|g"         -e "s|{{SYNC_INTERVAL}}|${SYNC_INTERVAL}|g"         -e "s|{{RCLONE_RC_ADDR}}|${RCLONE_RC_ADDR}|g" \
-        -e "s|{{IMMEDIATE_SCRIPT}}|${IMMEDIATE_SCRIPT}|g"         "$src" > "$dst"
+    sed -e "s|{{RCLONE_BIN}}|${RCLONE_BIN}|g"         -e "s|{{MERGERFS_BIN}}|${MERGERFS_BIN}|g"         -e "s|{{CRYPT_REMOTE}}|${CRYPT_REMOTE}|g"         -e "s|{{CLOUD_REMOTE_MOUNT}}|${CLOUD_REMOTE_MOUNT}|g"         -e "s|{{LOCAL_CACHE_DIR}}|${LOCAL_CACHE_DIR}|g"         -e "s|{{TIERED_MOUNT}}|${TIERED_MOUNT}|g"         -e "s|{{SYNC_SCRIPT}}|${SYNC_SCRIPT}|g"         -e "s|{{IMMEDIATE_SCRIPT}}|${IMMEDIATE_SCRIPT}|g"         -e "s|{{QUOTA_SCRIPT}}|${QUOTA_SCRIPT}|g"         -e "s|{{ALERT_SCRIPT}}|${ALERT_SCRIPT}|g"         -e "s|{{SYNC_INTERVAL}}|${SYNC_INTERVAL}|g"         -e "s|{{RCLONE_RC_ADDR}}|${RCLONE_RC_ADDR}|g"         "$src" > "$dst"
 }
 
 render_template "${SCRIPT_DIR}/systemd/rclone-mount.service.template" "$HOME/.config/systemd/user/rclone-mount.service"
 render_template "${SCRIPT_DIR}/systemd/mergerfs-mount.service.template" "$HOME/.config/systemd/user/mergerfs-mount.service"
 render_template "${SCRIPT_DIR}/systemd/tier-sync.service.template" "$HOME/.config/systemd/user/tier-sync.service"
 render_template "${SCRIPT_DIR}/systemd/tier-sync.timer.template" "$HOME/.config/systemd/user/tier-sync.timer"
-render_template "${SCRIPT_DIR}/systemd/telegram-alert@.service.template" "$HOME/.config/systemd/user/telegram-alert@.service"
 render_template "${SCRIPT_DIR}/systemd/immediate-sync.service.template" "$HOME/.config/systemd/user/immediate-sync.service"
-
+render_template "${SCRIPT_DIR}/systemd/quota-monitor.service.template" "$HOME/.config/systemd/user/quota-monitor.service"
+render_template "${SCRIPT_DIR}/systemd/quota-monitor.timer.template" "$HOME/.config/systemd/user/quota-monitor.timer"
+render_template "${SCRIPT_DIR}/systemd/telegram-alert@.service.template" "$HOME/.config/systemd/user/telegram-alert@.service"
 
 # Reload and enable services
 systemctl --user daemon-reload
-systemctl --user enable --now rclone-mount.service mergerfs-mount.service tier-sync.timer
+systemctl --user enable --now rclone-mount.service mergerfs-mount.service tier-sync.timer quota-monitor.timer
+
 if command -v inotifywait &>/dev/null; then
     systemctl --user enable --now immediate-sync.service
     success "immediate-sync.service started."
 fi
 
-success "Systemd user services and timer started."
+success "Systemd user services and timers started."
 
 # Enable lingering so services survive user logout
 loginctl enable-linger "$USER" 2>/dev/null || true
+
+# Generate initial quota file
+"$QUOTA_SCRIPT" 2>/dev/null || true
 
 # 8. Test Telegram Notification (if configured)
 if [ "${TELEGRAM_ALERTS_ENABLED}" = "true" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
@@ -249,4 +296,4 @@ fi
 echo -e "\n${GREEN}${BOLD}Setup Completed Successfully! 🎉${NC}"
 echo -e "Unified Storage Mount: ${CYAN}${TIERED_MOUNT}${NC}"
 echo -e "Write your files directly to this directory."
-echo -e "Files will be cached locally and synced to encrypted cloud every ${SYNC_INTERVAL}."
+echo -e "Run ${BOLD}doctor.sh${NC} anytime to verify system health."

@@ -6,7 +6,7 @@ OnFailure=telegram-alert@%n.service
 
 [Service]
 Type=simple
-ExecStart={{MERGERFS_BIN}} -f -o category.create=ff,moveonenospc=true {{LOCAL_CACHE_DIR}}:{{CLOUD_REMOTE_MOUNT}} {{TIERED_MOUNT}}
+ExecStart={{MERGERFS_BIN}} -f -o category.create=ff,moveonenospc=true,statfs_ignore=ro {{LOCAL_CACHE_DIR}}:{{CLOUD_REMOTE_MOUNT}} {{TIERED_MOUNT}}
 ExecStop=/usr/bin/fusermount -u {{TIERED_MOUNT}}
 ExecStopPost=/bin/sh -c 'if [ "$$SERVICE_RESULT" != "success" ]; then {{ALERT_SCRIPT}} "⚠️ %n stopped unexpectedly ($$SERVICE_RESULT)"; fi'
 Restart=on-failure

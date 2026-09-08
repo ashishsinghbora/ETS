@@ -1,0 +1,10 @@
+[Unit]
+Description=Real-time Quota and Capacity Monitor for Tiered Storage
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{QUOTA_SCRIPT}}
+
+[Install]
+WantedBy=default.target

@@ -2,7 +2,12 @@
 set -euo pipefail
 export PATH="$HOME/.local/bin:${PATH}"
 
-# Default fallback values (overridden by environment or config)
+# Preserve caller environment overrides
+ENV_SYNC_MIN_AGE="${SYNC_MIN_AGE:-}"
+ENV_PANIC_THRESHOLD="${PANIC_THRESHOLD:-}"
+ENV_PANIC_TARGET="${PANIC_TARGET:-}"
+ENV_DRY_RUN="${DRY_RUN:-}"
+
 CONFIG_FILE="${CONFIG_FILE:-$HOME/.config/encrypted-tiered-storage/storage.env}"
 if [ -f "$CONFIG_FILE" ]; then
     # shellcheck disable=SC1090
@@ -11,16 +16,16 @@ fi
 
 LOCAL_CACHE="${LOCAL_CACHE_DIR:-$HOME/mnt/local-cache}"
 REMOTE_DEST="${CRYPT_REMOTE:-gcrypt}:"
-MIN_AGE="${SYNC_MIN_AGE:-15m}"
+MIN_AGE="${ENV_SYNC_MIN_AGE:-${SYNC_MIN_AGE:-15m}}"
 BWLIMIT="${SYNC_BWLIMIT:-5M}"
 TRANSFERS="${SYNC_TRANSFERS:-2}"
 CHECKERS="${SYNC_CHECKERS:-2}"
 RC_ADDR="${RCLONE_RC_ADDR:-127.0.0.1:5572}"
-PANIC_THRESHOLD="${PANIC_THRESHOLD:-80}"
-PANIC_TARGET="${PANIC_TARGET:-60}"
+PANIC_THRESHOLD="${ENV_PANIC_THRESHOLD:-${PANIC_THRESHOLD:-80}}"
+PANIC_TARGET="${ENV_PANIC_TARGET:-${PANIC_TARGET:-60}}"
 
 DRY_RUN=false
-if [ "${1:-}" = "--dry-run" ] || [ "${DRY_RUN:-false}" = "true" ]; then
+if [ "${1:-}" = "--dry-run" ] || [ "$ENV_DRY_RUN" = "true" ]; then
     DRY_RUN=true
 fi
 
@@ -43,7 +48,7 @@ if [ "$current_usage" -ge "$PANIC_THRESHOLD" ]; then
     log "[PANIC] Local cache filesystem usage ($current_usage%) >= panic threshold ($PANIC_THRESHOLD%). Starting LRU eviction..."
     
     # Sort files in LOCAL_CACHE by atime (oldest first: %A@)
-    while IFS= read -r -d $'\0' entry; do
+    find "$LOCAL_CACHE" -mindepth 1 -type f -printf '%A@ %p\0' 2>/dev/null | sort -z -n | while IFS= read -r -d '' entry; do
         curr="$(get_cache_usage)"
         if [ "$curr" -le "$PANIC_TARGET" ]; then
             log "[PANIC] Local cache usage dropped to $curr% (target <= $PANIC_TARGET%). Panic eviction complete."
@@ -69,7 +74,7 @@ if [ "$current_usage" -ge "$PANIC_THRESHOLD" ]; then
                 --bwlimit "$BWLIMIT" \
                 --stats-one-line
         fi
-    done < <(find "$LOCAL_CACHE" -mindepth 1 -type f -printf '%A@ %p\0' 2>/dev/null | sort -z -n)
+    done
 
     if [ "$DRY_RUN" != true ]; then
         find "$LOCAL_CACHE" -mindepth 1 -type d -empty -delete 2>/dev/null || true
@@ -85,9 +90,10 @@ log "[ROUTINE] Starting routine time-based sync from $LOCAL_CACHE to $REMOTE_DES
 
 # Smart Filer hook for routine pass if enabled
 if [ "${SMART_FILER_ENABLED:-false}" = "true" ] && [ -x "$HOME/.local/bin/smart-filer.sh" ]; then
-    while IFS= read -r -d $'\0' f; do
+    "$HOME/.local/bin/smart-filer.sh" --git-dirs 2>/dev/null || true
+    find "$LOCAL_CACHE" -mindepth 1 -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
         "$HOME/.local/bin/smart-filer.sh" "$f" 2>/dev/null || true
-    done < <(find "$LOCAL_CACHE" -mindepth 1 -type f -print0 2>/dev/null)
+    done
 fi
 
 RCLONE_EXTRA_ARGS=()

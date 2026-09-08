@@ -12,8 +12,8 @@ BOLD="\033[1m"
 NC="\033[0m"
 
 echo -e "${YELLOW}${BOLD}Stopping and disabling systemd units...${NC}"
-systemctl --user stop immediate-sync.service mergerfs-mount.service rclone-mount.service tier-sync.timer tier-sync.service 2>/dev/null || true
-systemctl --user disable immediate-sync.service mergerfs-mount.service rclone-mount.service tier-sync.timer 2>/dev/null || true
+systemctl --user stop immediate-sync.service quota-monitor.timer quota-monitor.service mergerfs-mount.service rclone-mount.service tier-sync.timer tier-sync.service 2>/dev/null || true
+systemctl --user disable immediate-sync.service quota-monitor.timer mergerfs-mount.service rclone-mount.service tier-sync.timer 2>/dev/null || true
 
 echo -e "${CYAN}Checking and unmounting active mounts...${NC}"
 STORAGE_BASE_DIR="${STORAGE_BASE_DIR:-$HOME/mnt}"
@@ -27,6 +27,8 @@ rm -f "$HOME/.config/systemd/user/tier-sync.service"
 rm -f "$HOME/.config/systemd/user/tier-sync.timer"
 rm -f "$HOME/.config/systemd/user/telegram-alert@.service"
 rm -f "$HOME/.config/systemd/user/immediate-sync.service"
+rm -f "$HOME/.config/systemd/user/quota-monitor.service"
+rm -f "$HOME/.config/systemd/user/quota-monitor.timer"
 systemctl --user daemon-reload
 
 echo -e "${GREEN}${BOLD}Uninstallation complete!${NC}"
