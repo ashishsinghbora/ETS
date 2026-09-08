@@ -5,7 +5,7 @@
     "title": "Encrypted Tiered Storage (ETS) - Architecture",
     "subtitle": "Enterprise-grade, rootless client-side encrypted tiered storage pipeline for Linux",
     "output": "docs/architecture/ets-system.html",
-    "visual_preset": "blueprint",
+    "visual_preset": "classic",
     "animation": "trace",
     "quality_profile": "standard",
     "viewBox": [
